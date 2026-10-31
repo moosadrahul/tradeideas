@@ -150,12 +150,12 @@ footer{color:var(--muted)}
 
 .holding-symbol-button{background:transparent!important;color:var(--ink)!important;padding:0!important;margin:0!important;cursor:pointer;text-decoration:none;font-weight:600;display:block}.holdings-table .holding-symbol-button:hover{text-decoration:underline;color:var(--green)!important;opacity:0.8}.holding-income-editor td{background:#181818;text-align:left!important;padding:12px 8px!important}.holding-income-editor label{display:inline-flex;align-items:center;gap:8px;margin-right:22px;color:var(--muted);font:10px "DM Mono",monospace;text-transform:uppercase}.holding-income-input{height:32px;border:1px solid var(--line);border-radius:5px;background:var(--card);color:var(--ink);padding:0 8px;font:12px "DM Mono",monospace}.holding-income-editor select{min-width:120px}
 
-/* Import preview panel styling */
-#importPreviewPanel { overflow-y: auto; }
+/* Import preview panel styling - explicit override */
+#importPreviewPanel.hidden { display: none !important; }
+#importPreviewPanel:not(.hidden) { position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; inset: 0 !important; z-index: 30 !important; display: grid !important; place-items: center !important; background: rgba(0,0,0,.68) !important; padding: 20px !important; }
 #importPreviewPanel .auth-card { max-width: 600px; max-height: 80vh; overflow-y: auto; }
 #importPreviewContent table { width: 100%; border-collapse: collapse; font-size: 12px; }
 #importPreviewContent table thead { border-bottom: 1px solid var(--line); }
 #importPreviewContent table th { text-align: left; padding: 8px; font-weight: 600; }
 #importPreviewContent table td { padding: 8px; border-bottom: 1px solid var(--line); }
 #importPreviewContent table td:nth-child(n+2) { text-align: right; }
-#importPreviewPanel { position: fixed !important; inset: 0 !important; z-index: 30 !important; display: grid !important; place-items: center !important; background: rgba(0,0,0,.68) !important; padding: 20px !important; }

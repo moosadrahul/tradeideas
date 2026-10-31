@@ -1535,6 +1535,8 @@ async function showImportPreview(holdings) {
   
   previewContent.innerHTML = html;
   previewPanel.classList.remove("hidden");
+  // Force layout recalculation to ensure centering CSS applies
+  void previewPanel.offsetHeight;
   
   return new Promise((resolve, reject) => {
     const confirmBtn = document.querySelector("#importConfirmButton");
