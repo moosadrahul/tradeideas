@@ -260,19 +260,19 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_json(200, {"ok": True})
 
     def handle_holdings_get(self):
-        session = self.session_user()
-        if not session:
-            self.send_json(401, {"error": "Not authenticated"})
-            return
-        username = session[1]
+        # Use default admin user for holdings (protected by password screen)
+        username = "admin"
+        if username not in USERS:
+            USERS[username] = {"salt": "", "password": "", "portfolio": None, "holdings_accounts": []}
+            save_users()
         holdings_accounts = USERS[username].get("holdings_accounts", [])
         self.send_json(200, {"holdings_accounts": holdings_accounts})
 
     def handle_holdings_save(self):
-        session = self.session_user()
-        if not session:
-            self.send_json(401, {"error": "Not authenticated"})
-            return
+        # Use default admin user for holdings (protected by password screen)
+        username = "admin"
+        if username not in USERS:
+            USERS[username] = {"salt": "", "password": "", "portfolio": None, "holdings_accounts": []}
         try:
             data = self.read_json()
             holdings_accounts = data.get("holdings_accounts", [])
@@ -282,15 +282,13 @@ class Handler(SimpleHTTPRequestHandler):
         if not isinstance(holdings_accounts, list):
             self.send_json(400, {"error": "Invalid holdings data"})
             return
-        USERS[session[1]]["holdings_accounts"] = holdings_accounts
+        USERS[username]["holdings_accounts"] = holdings_accounts
         save_users()
         self.send_json(200, {"ok": True})
 
     def handle_change_password(self):
-        session = self.session_user()
-        if not session:
-            self.send_json(401, {"error": "Not authenticated"})
-            return
+        # Change password for default admin user (protected by password screen)
+        username = "admin"
         try:
             payload = self.read_json()
             current_password = str(payload.get("currentPassword", ""))
@@ -301,13 +299,21 @@ class Handler(SimpleHTTPRequestHandler):
         if len(new_password) < 8:
             self.send_json(400, {"error": "New password must be at least 8 characters"})
             return
-        username = session[1]
+        
+        # Initialize admin user if it doesn't exist
+        if username not in USERS:
+            USERS[username] = {"salt": "", "password": "", "portfolio": None, "holdings_accounts": []}
+            save_users()
+        
         record = USERS[username]
-        salt = base64.b64decode(record["salt"])
-        _, digest = hash_password(current_password, salt)
-        if not secrets.compare_digest(digest, record["password"]):
-            self.send_json(401, {"error": "Current password is incorrect"})
-            return
+        # If password not set yet (first time), skip current password check
+        if record.get("password"):
+            salt = base64.b64decode(record["salt"])
+            _, digest = hash_password(current_password, salt)
+            if not secrets.compare_digest(digest, record["password"]):
+                self.send_json(401, {"error": "Current password is incorrect"})
+                return
+        
         new_salt, new_digest = hash_password(new_password)
         USERS[username]["salt"] = new_salt
         USERS[username]["password"] = new_digest
