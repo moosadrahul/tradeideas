@@ -305,11 +305,22 @@ class Handler(SimpleHTTPRequestHandler):
             save_users()
         
         record = USERS[username]
-        # If no password set yet, deny access
-        if not record.get("password"):
-            self.send_json(401, {"error": "Password not set"})
-            return
         
+        # Migration: If no password is set, allow the legacy hardcoded password
+        if not record.get("password"):
+            if password == "tradeideas2025":
+                # Initialize the admin account with this password
+                new_salt, new_digest = hash_password(password)
+                USERS[username]["salt"] = new_salt
+                USERS[username]["password"] = new_digest
+                save_users()
+                self.send_json(200, {"ok": True})
+                return
+            else:
+                self.send_json(401, {"error": "Invalid password"})
+                return
+        
+        # Normal password verification
         salt = base64.b64decode(record["salt"])
         _, digest = hash_password(password, salt)
         if not secrets.compare_digest(digest, record["password"]):
