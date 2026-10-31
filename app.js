@@ -849,10 +849,9 @@ async function refreshPortfolioOverview() {
   const statusElement = document.querySelector("#portfolioOverviewStatus");
   
   // Debug: log number of accounts and holdings
-  console.log("refreshPortfolioOverview - Processing", holdingAccounts.length, "accounts");
-  holdingAccounts.forEach((acc, idx) => {
-    console.log(`  Account ${idx}: ${acc.name} - ${acc.holdings?.length || 0} holdings`);
-  });
+  console.log("=== refreshPortfolioOverview START ===");
+  console.log("holdingAccounts.length:", holdingAccounts.length);
+  console.log("Full holdingAccounts:", JSON.stringify(holdingAccounts.map(a => ({ id: a.id, name: a.name, holdings_count: a.holdings?.length || 0 })), null, 2));
   
   const accountResults = await Promise.all(holdingAccounts.map(async (account) => {
     const values = await Promise.all(account.holdings.map(async (holding) => {
@@ -883,6 +882,7 @@ async function refreshPortfolioOverview() {
   
   // Debug: log calculated totals
   console.log("Portfolio totals - Value:", formatHoldingMoney(totalValue), "Income:", formatHoldingMoney(totalProjectedIncome), "GainLoss:", formatHoldingMoney(totalGainLoss));
+  console.log("=== refreshPortfolioOverview END ===\n");
   
   valueElement.textContent = formatHoldingMoney(totalValue);
   incomeElement.textContent = formatHoldingMoney(totalProjectedIncome);
