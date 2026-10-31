@@ -122,6 +122,9 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/auth/me":
             self.handle_auth_me()
             return
+        if parsed.path == "/api/holdings":
+            self.handle_holdings_get()
+            return
         if parsed.path == "/api/portfolio":
             self.handle_portfolio_get()
             return
@@ -172,6 +175,12 @@ class Handler(SimpleHTTPRequestHandler):
                 SESSIONS.pop(session[0], None)
             self.send_json(200, {"ok": True}, clear_cookie=True)
             return
+        if parsed.path == "/api/auth/change-password":
+            self.handle_change_password()
+            return
+        if parsed.path == "/api/holdings":
+            self.handle_holdings_save()
+            return
         if parsed.path == "/api/portfolio":
             self.handle_portfolio_save()
             return
@@ -202,7 +211,7 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_json(409, {"error": "That username already exists"})
                 return
             salt, digest = hash_password(password)
-            USERS[username] = {"salt": salt, "password": digest, "portfolio": None}
+            USERS[username] = {"salt": salt, "password": digest, "portfolio": None, "holdings_accounts": []}
             save_users()
         else:
             record = USERS.get(username)
@@ -247,6 +256,61 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(400, {"error": "Invalid portfolio data"})
             return
         USERS[session[1]]["portfolio"] = portfolio
+        save_users()
+        self.send_json(200, {"ok": True})
+
+    def handle_holdings_get(self):
+        session = self.session_user()
+        if not session:
+            self.send_json(401, {"error": "Not authenticated"})
+            return
+        username = session[1]
+        holdings_accounts = USERS[username].get("holdings_accounts", [])
+        self.send_json(200, {"holdings_accounts": holdings_accounts})
+
+    def handle_holdings_save(self):
+        session = self.session_user()
+        if not session:
+            self.send_json(401, {"error": "Not authenticated"})
+            return
+        try:
+            data = self.read_json()
+            holdings_accounts = data.get("holdings_accounts", [])
+        except (ValueError, TypeError):
+            self.send_json(400, {"error": "Invalid holdings data"})
+            return
+        if not isinstance(holdings_accounts, list):
+            self.send_json(400, {"error": "Invalid holdings data"})
+            return
+        USERS[session[1]]["holdings_accounts"] = holdings_accounts
+        save_users()
+        self.send_json(200, {"ok": True})
+
+    def handle_change_password(self):
+        session = self.session_user()
+        if not session:
+            self.send_json(401, {"error": "Not authenticated"})
+            return
+        try:
+            payload = self.read_json()
+            current_password = str(payload.get("currentPassword", ""))
+            new_password = str(payload.get("newPassword", ""))
+        except (ValueError, TypeError):
+            self.send_json(400, {"error": "Invalid request"})
+            return
+        if len(new_password) < 8:
+            self.send_json(400, {"error": "New password must be at least 8 characters"})
+            return
+        username = session[1]
+        record = USERS[username]
+        salt = base64.b64decode(record["salt"])
+        _, digest = hash_password(current_password, salt)
+        if not secrets.compare_digest(digest, record["password"]):
+            self.send_json(401, {"error": "Current password is incorrect"})
+            return
+        new_salt, new_digest = hash_password(new_password)
+        USERS[username]["salt"] = new_salt
+        USERS[username]["password"] = new_digest
         save_users()
         self.send_json(200, {"ok": True})
 

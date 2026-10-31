@@ -30,7 +30,7 @@
           <button class="top-tab" data-view="dashboardView">Analysis</button>
           <button class="top-tab active" data-view="holdingsView">Holdings</button>
         </nav>
-        <button class="text-button auth-button" id="authButton" type="button">Sign in to sync</button>
+        <button class="text-button" id="changePasswordButton" type="button">Change password</button>
       </header>
       <main id="dashboardView" hidden>
         <div id="toast" class="toast" role="status"></div>
@@ -80,6 +80,17 @@
         <button class="text-button" id="authMode" type="button">Create a new account</button>
       </form>
     </div>
-    <script src="app.js?v=71"></script>
+    <div class="auth-panel hidden" id="changePasswordPanel" role="dialog" aria-modal="true" aria-labelledby="changePasswordTitle">
+      <form class="auth-card" id="changePasswordForm">
+        <button class="auth-close" id="changePasswordClose" type="button" aria-label="Close">×</button>
+        <p class="card-kicker">Security</p>
+        <h2 id="changePasswordTitle">Change password</h2>
+        <p class="muted">Enter your current password and new password.</p>
+        <label>Current password<input id="currentPasswordInput" type="password" minlength="8" autocomplete="current-password" required /></label>
+        <label>New password<input id="newPasswordInput" type="password" minlength="8" autocomplete="new-password" required /></label>
+        <button class="primary-button" id="changePasswordSubmit" type="submit">Update password</button>
+      </form>
+    </div>
+    <script src="app.js?v=72"></script>
   </body>
 </html>

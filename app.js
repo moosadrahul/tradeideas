@@ -25,6 +25,69 @@
   }
 })();
 
+// Server sync for holdings
+const serverSync = {
+  async loadHoldings() {
+    try {
+      const response = await fetch("/api/holdings");
+      if (response.ok) {
+        const data = await response.json();
+        return data.holdings_accounts || [];
+      }
+    } catch (e) {
+      console.log("Server sync unavailable, using local storage");
+    }
+    return null;
+  },
+  async saveHoldings(accounts) {
+    try {
+      const response = await fetch("/api/holdings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ holdings_accounts: accounts })
+      });
+      return response.ok;
+    } catch (e) {
+      console.error("Failed to save holdings to server:", e);
+      return false;
+    }
+  },
+  async changePassword(currentPassword, newPassword) {
+    try {
+      const response = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      return response.ok ? { ok: true } : { ok: false, error: await response.text() };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+};
+
+// Change password UI
+document.getElementById("changePasswordButton").addEventListener("click", () => {
+  document.getElementById("changePasswordPanel").classList.remove("hidden");
+});
+document.getElementById("changePasswordClose").addEventListener("click", () => {
+  document.getElementById("changePasswordPanel").classList.add("hidden");
+  document.getElementById("changePasswordForm").reset();
+});
+document.getElementById("changePasswordForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const currentPassword = document.getElementById("currentPasswordInput").value;
+  const newPassword = document.getElementById("newPasswordInput").value;
+  const result = await serverSync.changePassword(currentPassword, newPassword);
+  if (result.ok) {
+    showToast("Password updated successfully!");
+    document.getElementById("changePasswordPanel").classList.add("hidden");
+    document.getElementById("changePasswordForm").reset();
+  } else {
+    alert("Error: " + (result.error || "Failed to change password"));
+  }
+});
+
 const state = { symbol: "AAPL", timeframe: "1Y", prices: [], indicators: {}, source: "Demo data", exchange: "NASDAQ" };
 const storedHoldings = JSON.parse(localStorage.getItem("trend-analysis-holdings") || "[]");
 let holdingAccounts = JSON.parse(localStorage.getItem("trend-analysis-holding-accounts") || "null");
@@ -123,6 +186,7 @@ function saveHoldings() {
   localStorage.setItem("trend-analysis-holdings", JSON.stringify(holdings));
   localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
   localStorage.setItem("trend-analysis-current-holding-account", currentHoldingAccountId);
+  serverSync.saveHoldings(holdingAccounts);
   if (signedInUser) syncPortfolio();
 }
 async function syncPortfolio() {
