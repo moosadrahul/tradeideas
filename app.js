@@ -331,8 +331,15 @@ async function initializeHoldings() {
         console.log("Updated holdingAccounts from server:", holdingAccounts);
         console.log("Current holdings:", holdings);
       } else if (Array.isArray(serverHoldings) && serverHoldings.length === 0) {
-        // Server returned empty array - this is first time, use local
-        console.log("Server returned empty - using local holdings");
+        // Server returned empty array
+        // If local has data and server is empty, auto-save to server
+        if (holdingAccounts && holdingAccounts.length > 0 && 
+            holdingAccounts.some(acc => acc.holdings && acc.holdings.length > 0)) {
+          console.log("Local holdings exist but server is empty - auto-syncing to server");
+          await serverSync.saveHoldings(holdingAccounts);
+        } else {
+          console.log("Server returned empty - using local holdings");
+        }
         // holdingAccounts already loaded from localStorage above, keep it
       }
     } else {
