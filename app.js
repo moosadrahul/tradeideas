@@ -391,7 +391,10 @@ function closeSymbolSuggestions() {
   document.querySelector("#symbolSuggestions").classList.remove("show");
 }
 function formatPercent(value) { return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`; }
-function formatHoldingMoney(value) { return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
+function formatHoldingMoney(value) { 
+  const num = typeof value === 'number' ? value : parseFloat(value) || 0;
+  return `$${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 function getDividendSettings(holding) {
   if (holding.dividendAmount !== undefined) return { amount: holding.dividendAmount || 0, frequency: holding.dividendFrequency || "quarterly" };
   if (holding.amount !== undefined) return { amount: holding.amount || 0, frequency: holding.frequency || "quarterly" };
@@ -952,7 +955,8 @@ function saveHoldingAccountName() {
 }
 function setHoldingsStatus(message) { showToast(message); }
 function getHoldingPerformance(holding, market) {
-  const current = market.prices.at(-1).close;
+  const priceData = market.prices.at(-1);
+  const current = typeof priceData.close === 'number' ? priceData.close : parseFloat(priceData.close);
   const bookValue = holding.quantity * holding.bookPrice;
   const currentValue = holding.quantity * current;
   const gainLoss = currentValue - bookValue;
