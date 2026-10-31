@@ -847,6 +847,13 @@ async function refreshPortfolioOverview() {
   const gainLossElement = document.querySelector("#portfolioOverviewGainLoss");
   const accountsElement = document.querySelector("#portfolioAccountValues");
   const statusElement = document.querySelector("#portfolioOverviewStatus");
+  
+  // Debug: log number of accounts and holdings
+  console.log("refreshPortfolioOverview - Processing", holdingAccounts.length, "accounts");
+  holdingAccounts.forEach((acc, idx) => {
+    console.log(`  Account ${idx}: ${acc.name} - ${acc.holdings?.length || 0} holdings`);
+  });
+  
   const accountResults = await Promise.all(holdingAccounts.map(async (account) => {
     const values = await Promise.all(account.holdings.map(async (holding) => {
       try {
@@ -867,6 +874,10 @@ async function refreshPortfolioOverview() {
     const dividend = getDividendSettings(holding);
     return accountSum + getProjectedAnnualIncome(holding.quantity, dividend.amount, dividend.frequency);
   }, 0), 0);
+  
+  // Debug: log calculated totals
+  console.log("Portfolio totals - Value:", formatHoldingMoney(totalValue), "Income:", formatHoldingMoney(totalProjectedIncome), "GainLoss:", formatHoldingMoney(totalGainLoss));
+  
   valueElement.textContent = formatHoldingMoney(totalValue);
   incomeElement.textContent = formatHoldingMoney(totalProjectedIncome);
   gainLossElement.textContent = `${totalGainLoss >= 0 ? "+" : ""}${formatHoldingMoney(totalGainLoss)}`;
