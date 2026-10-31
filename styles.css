@@ -1,5 +1,5 @@
 :root{--ink:#e7eeeb;--muted:#91a19b;--line:#252525;--paper:#000;--card:#101010;--green:#26a978;--green-dark:#176b4d;--mint:#171717;--navy:#050505}
-*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:"Space Grotesk",sans-serif}button,input,select{font:inherit}button{cursor:pointer}
+input{all:revert;background:#181818!important;color:var(--ink)!important;border:1px solid var(--line)!important;padding:4px 8px;font-family:inherit;font-size:inherit}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:"Space Grotesk",sans-serif}button,input,select{font:inherit}button{cursor:pointer}
 .password-screen{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--paper);display:grid;place-items:center;z-index:9999}
 .password-screen-content{text-align:center}
 .password-screen-brand{display:flex;align-items:center;justify-content:center;gap:10px;font-size:24px;font-weight:700;color:var(--ink);margin-bottom:48px}
