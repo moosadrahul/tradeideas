@@ -54,8 +54,11 @@ SYMBOL_SEARCH_CACHE = {}
 
 
 def fetch_prices(symbol, outputsize, api_key, start_date=None, end_date=None, interval="1day"):
+    # Extract base symbol without exchange code (e.g., "AAPL" from "AAPL:NAS")
+    base_symbol = symbol.split(':')[0] if ':' in symbol else symbol
+    
     request_params = {
-        "symbol": symbol,
+        "symbol": base_symbol,
         "interval": interval,
         "outputsize": outputsize,
         "apikey": api_key,
