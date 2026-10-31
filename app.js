@@ -88,6 +88,12 @@ document.getElementById("changePasswordForm").addEventListener("submit", async (
   }
 });
 
+// Logout
+document.getElementById("logoutButton")?.addEventListener("click", () => {
+  sessionStorage.removeItem("passwordAuthenticated");
+  location.reload();
+});
+
 const state = { symbol: "AAPL", timeframe: "1Y", prices: [], indicators: {}, source: "Demo data", exchange: "NASDAQ" };
 const storedHoldings = JSON.parse(localStorage.getItem("trend-analysis-holdings") || "[]");
 let holdingAccounts = JSON.parse(localStorage.getItem("trend-analysis-holding-accounts") || "null");
