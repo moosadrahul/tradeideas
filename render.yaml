@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: tradeideas
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt || true
+    startCommand: python3 server.py
+    envVars:
+      - key: TWELVE_DATA_API_KEY
+        sync: false
+      - key: HOST
+        value: 0.0.0.0

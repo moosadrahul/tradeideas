@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trend Analysis</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <a class="brand" href="#"><span class="brand-mark">T</span><span>Trend Analysis</span></a>
+        <nav class="top-tabs" aria-label="Primary">
+          <button class="top-tab" data-view="dashboardView">Analysis</button>
+          <button class="top-tab active" data-view="holdingsView">Holdings</button>
+        </nav>
+        <button class="text-button auth-button" id="authButton" type="button">Sign in to sync</button>
+      </header>
+      <main id="dashboardView" hidden>
+        <div id="toast" class="toast" role="status"></div>
+        <section class="card scanner-card horizon-card">
+          <div class="card-header"><div><p class="card-kicker">Live multi-horizon research</p><h2>Score 90+ candidates by holding period</h2><p class="muted">Shows only candidates scoring 90 or higher across the configured NASDAQ, NYSE, TSX, and ETF universes. Expected returns are model estimates, not guarantees.</p></div><div><button class="primary-button" id="liveScanButton">Refresh <span>↻</span></button><span class="scan-source" id="horizonSource"></span></div></div>
+          <div class="horizon-grid">
+            <div><h3>1-week</h3><div class="scanner-table"><div class="scanner-table-head horizon-head"><span>#</span><span>Symbol</span><span>Exchange</span><span>Price</span><span>Change</span><span>Expected</span><span>Stop loss</span><span>Target</span><span>Score</span></div><div id="weeklyRows"><div class="scanner-empty">Refresh to scan.</div></div></div></div>
+            <div><h3>1-month</h3><div class="scanner-table"><div class="scanner-table-head horizon-head"><span>#</span><span>Symbol</span><span>Exchange</span><span>Price</span><span>Change</span><span>Expected</span><span>Stop loss</span><span>Target</span><span>Score</span></div><div id="monthlyRows"><div class="scanner-empty">Refresh to scan.</div></div></div></div>
+            <div><h3>1-year</h3><div class="scanner-table"><div class="scanner-table-head horizon-head"><span>#</span><span>Symbol</span><span>Exchange</span><span>Price</span><span>Change</span><span>Expected</span><span>Stop loss</span><span>Target</span><span>Score</span></div><div id="yearlyRows"><div class="scanner-empty">Refresh to scan.</div></div></div></div>
+          </div>
+        </section>
+        <section class="control-panel symbol-controls"><label class="search-wrap"><span>⌕</span><input id="symbolInput" value="" placeholder="Enter symbol" maxlength="20" autocomplete="off" aria-label="Ticker symbol" /><span class="search-hint">TSX / NASDAQ / NYSE / CBOE</span><div id="symbolSuggestions" class="symbol-suggestions" role="listbox"></div></label><button class="primary-button" id="analyzeButton">Analyze symbol <span>→</span></button></section>
+        <section class="ticker-row"><div class="ticker-heading"><div><span class="ticker-symbol" id="tickerSymbol">AAPL</span><small class="stock-name" id="stockName">Apple Inc.</small></div><span class="exchange" id="tickerExchange">NASDAQ</span></div><div class="price-block"><span class="price" id="currentPrice">$218.47</span><span class="positive" id="dailyChange">+1.84%</span></div><div class="mini-stat"><span>Market status</span><strong id="marketStatus"><i class="live-dot"></i> Open</strong></div><div class="mini-stat"><span>Last updated</span><strong id="updatedAt">Just now</strong></div><div class="signal-pill"><span class="signal-dot"></span><span id="signalText">HOLD</span></div></section>
+        <section class="grid main-grid"><article class="card chart-card"><div class="card-header"><div><p class="card-kicker">Price action</p><h2>Trend overview</h2><label class="chart-timeframe">Chart range <select id="chartTimeframeSelect"><option value="5Y">5 years</option><option value="1Y">1 year</option><option value="1M">1 month</option><option value="1W">1 week</option><option value="1D">1 day</option></select></label></div><div class="legend"><span><i class="legend-line candle-line"></i> Candles</span><span><i class="legend-line sma-line"></i> SMA 20</span><span><i class="legend-line sma50-line"></i> SMA 50</span><span><i class="legend-line sma200-line"></i> SMA 200</span></div></div><div class="chart-meta"><span id="chartRange">1 year · daily</span><span>USD</span></div><div class="chart-wrap"><span class="chart-axis-label chart-axis-y">Price (USD)</span><canvas id="priceChart" aria-label="Candlestick price trend chart"></canvas><span class="chart-axis-label chart-axis-x">Time</span></div></article><article class="card signal-card"><div class="card-header"><div><p class="card-kicker">Composite model</p><h2>Signal strength</h2></div><span class="info">i</span></div><div class="score-wrap"><div class="score-ring" id="scoreRing"><strong id="scoreValue">68</strong><span>/ 100</span></div><div><p class="score-label" id="scoreLabel">Moderately bullish</p><p class="muted">Across 7 indicators</p></div></div><div class="signal-bar"><span id="signalBar"></span></div><div class="signal-breakdown"><div><span>Trend</span><strong id="trendSignal">Bullish</strong></div><div><span>Momentum</span><strong id="momentumSignal">Bullish</strong></div><div><span>Volume</span><strong id="volumeSignal">Neutral</strong></div><div><span>Volatility</span><strong id="volatilitySignal">Neutral</strong></div></div><div class="target-scenarios"><div><span>1-year scenario</span><strong id="oneYearTarget">$238.00–$280.00</strong><small id="oneYearReturn">+9.0% to +28.0%</small></div><div><span>5-year scenario</span><strong id="fiveYearTarget">$300.00–$560.00</strong><small id="fiveYearReturn">+37.0% to +157.0%</small></div></div><p class="scenario-note">Model scenarios, not price predictions or financial advice.</p><button class="text-button" id="detailsButton">View model details <span>→</span></button></article></section>
+        <section class="grid lower-grid"><article class="card indicators-card"><div class="card-header"><div><p class="card-kicker">Technical analysis</p><h2>Indicator dashboard</h2></div><span class="as-of" id="indicatorAsOf">As of today</span></div><div class="indicator-list" id="indicatorList"></div></article><article class="card portfolio-card"><div class="card-header"><div><p class="card-kicker">Paper portfolio</p><h2>Performance</h2></div><button class="text-button" id="addTradeButton">+ Log trade</button></div><div class="portfolio-value"><strong id="portfolioValue">$10,842.60</strong><span class="positive" id="portfolioReturn">+$842.60 (+8.42%)</span></div><div class="portfolio-chart"><svg viewBox="0 0 500 100" preserveAspectRatio="none" aria-label="Portfolio performance chart"><defs><linearGradient id="area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#57d9a3" stop-opacity=".3"/><stop offset="1" stop-color="#57d9a3" stop-opacity="0"/></linearGradient></defs><path class="area" d="M0 81 C35 79 42 69 70 73 S107 52 132 62 S163 54 184 58 S219 42 241 51 S274 29 302 40 S333 24 354 32 S394 17 420 24 S457 11 500 8 L500 100 L0 100Z"/><path class="line" d="M0 81 C35 79 42 69 70 73 S107 52 132 62 S163 54 184 58 S219 42 241 51 S274 29 302 40 S333 24 354 32 S394 17 420 24 S457 11 500 8"/></svg></div><div class="portfolio-footer"><span>Started Oct 30, 2025</span><span>12 positions · 4 open</span></div></article></section>
+        <section class="card backtest-card"><div class="backtest-heading"><div><p class="card-kicker">Strategy lab</p><h2>Backtest a signal</h2><p class="muted">See how this composite model would have behaved on historical data.</p></div><button class="primary-button" id="runBacktestButton">Run backtest <span>→</span></button></div><div class="backtest-controls"><label>Historical period <select id="backtestPeriod"><option value="dotcom">Dot-com bust (2000–2002)</option><option value="gfc">Financial crisis (2008–2009)</option><option value="recovery">Recovery (2010–2012)</option><option value="modern">Modern comparison (2015–present)</option><option value="loaded">Currently loaded data</option></select></label><label>Starting capital <div class="input-prefix"><span>$</span><input id="capitalInput" value="10000" inputmode="decimal" /></div></label><label>Entry threshold <div class="range-wrap"><input id="thresholdInput" type="range" min="50" max="80" value="60" /><output id="thresholdOutput">60</output></div></label><label>Risk per trade <select id="riskSelect"><option>1%</option><option>2%</option><option>5%</option></select></label></div><div id="backtestResults" class="backtest-results hidden"><div><span>Net return</span><strong class="positive" id="netReturn">+18.74%</strong></div><div><span>Final equity</span><strong id="finalEquity">$11,874</strong></div><div><span>Win rate</span><strong id="winRate">57.1%</strong></div><div><span>Max drawdown</span><strong class="negative" id="drawdown">-8.32%</strong></div><div><span>Trades</span><strong id="tradeCount">14</strong></div></div></section>
+      </main>
+      <section id="holdingsView" class="holdings-view">
+        <div id="deletePortfolioDialog" class="portfolio-confirm hidden" role="dialog" aria-modal="true" aria-labelledby="deletePortfolioTitle">
+          <div class="portfolio-confirm-card"><p class="card-kicker">Delete portfolio</p><h2 id="deletePortfolioTitle">Delete this portfolio?</h2><p id="deletePortfolioMessage" class="muted"></p><div class="portfolio-confirm-actions"><button class="ghost-button" id="cancelDeletePortfolio" type="button">Cancel</button><button class="danger-button" id="confirmDeletePortfolio" type="button">Delete portfolio</button></div></div>
+        </div>
+        <div class="holdings-heading">
+          <div><h1>Holdings</h1></div>
+          <button class="primary-button" id="newHoldingAccountButton" type="button">+ New account type</button>
+        </div>
+        <section class="portfolio-overview" aria-labelledby="portfolioOverviewTitle">
+          <div class="portfolio-overview-heading"><div><p class="card-kicker">All account types</p><h2 id="portfolioOverviewTitle">Portfolio value</h2></div><span id="portfolioOverviewStatus" class="holdings-performance-as-of"></span></div>
+          <div class="portfolio-overview-metrics">
+            <div><span class="portfolio-overview-label">Portfolio value</span><div id="portfolioOverviewValue" class="portfolio-overview-value">—</div></div>
+            <div><span class="portfolio-overview-label">Projected income (1 year)</span><div id="portfolioOverviewIncome" class="portfolio-overview-value">—</div></div>
+          </div>
+          <div id="portfolioAccountValues" class="portfolio-account-values"><p class="scanner-empty">Loading portfolio values…</p></div>
+        </section>
+        <div id="portfolioSections"></div>
+      </section>
+      <footer></footer>
+    </div>
+    <div class="auth-panel hidden" id="authPanel" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <form class="auth-card" id="authForm">
+        <button class="auth-close" id="authClose" type="button" aria-label="Close">×</button>
+        <p class="card-kicker">Portfolio sync</p>
+        <h2 id="authTitle">Sign in to sync</h2>
+        <p class="muted" id="authMessage">Use the same account in Chrome and this browser to access your holdings.</p>
+        <label>Username<input id="authUsername" autocomplete="username" required /></label>
+        <label>Password<input id="authPassword" type="password" minlength="8" autocomplete="current-password" required /></label>
+        <button class="primary-button" id="authSubmit" type="submit">Sign in</button>
+        <button class="text-button" id="authMode" type="button">Create a new account</button>
+      </form>
+    </div>
+    <script src="app.js?v=67"></script>
+  </body>
+</html>
