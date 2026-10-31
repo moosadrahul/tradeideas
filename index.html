@@ -17,7 +17,9 @@
           <span>Trend Analysis</span>
         </div>
         <form class="password-form" id="passwordForm">
-          <label for="passwordInput">Enter password</label>
+          <label for="usernameInput">Username</label>
+          <input type="text" id="usernameInput" placeholder="Username" required />
+          <label for="passwordInput">Password</label>
           <input type="password" id="passwordInput" placeholder="Password" required />
           <button type="submit" class="primary-button">Access <span>→</span></button>
         </form>
@@ -30,6 +32,7 @@
           <button class="top-tab" data-view="dashboardView">Analysis</button>
           <button class="top-tab active" data-view="holdingsView">Holdings</button>
         </nav>
+        <button class="text-button" id="adminConsoleButton" type="button" hidden>Admin</button>
         <button class="text-button" id="changePasswordButton" type="button">Change password</button>
         <button class="text-button" id="logoutButton" type="button">Log out</button>
       </header>
@@ -91,6 +94,22 @@
         <label>Current password<input id="currentPasswordInput" type="password" minlength="8" autocomplete="current-password" required /></label>
         <label>New password<input id="newPasswordInput" type="password" minlength="8" autocomplete="new-password" required /></label>
         <button class="primary-button" id="changePasswordSubmit" type="submit">Update password</button>
+      </form>
+    </div>
+    <div class="auth-panel hidden" id="adminPanel" role="dialog" aria-modal="true" aria-labelledby="adminPanelTitle">
+      <form class="auth-card" id="adminForm">
+        <button class="auth-close" id="adminClose" type="button" aria-label="Close">×</button>
+        <p class="card-kicker">Administration</p>
+        <h2 id="adminPanelTitle">User Management</h2>
+        <div id="adminContent">
+          <div id="usersList"><p class="muted">Loading users...</p></div>
+          <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--line);"/>
+          <p class="card-kicker">Create New User</p>
+          <label>Username<input id="newUsernameInput" type="text" placeholder="Username" required /></label>
+          <label>Password<input id="newUserPasswordInput" type="password" minlength="8" placeholder="Password" required /></label>
+          <label>Role<select id="newUserRoleSelect"><option value="read-only">Read-only</option><option value="admin">Admin</option></select></label>
+          <button class="primary-button" id="createUserButton" type="button">Create User</button>
+        </div>
       </form>
     </div>
     <script src="app.js?v=72"></script>

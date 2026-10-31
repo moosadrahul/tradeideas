@@ -7,37 +7,60 @@
   if (!sessionStorage.getItem("passwordAuthenticated")) {
     passwordForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const input = document.getElementById("passwordInput");
-      const password = input.value;
+      const usernameInput = document.getElementById("usernameInput");
+      const passwordInput = document.getElementById("passwordInput");
+      const username = usernameInput.value;
+      const password = passwordInput.value;
       
       try {
         const response = await fetch("/api/auth/verify-password", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password })
+          body: JSON.stringify({ username, password })
         });
         
         if (response.ok) {
+          const data = await response.json();
           sessionStorage.setItem("passwordAuthenticated", "true");
+          sessionStorage.setItem("username", username);
+          sessionStorage.setItem("userRole", data.role || "read-only");
+          window.currentUser = { username, role: data.role || "read-only" };
           passwordScreen.style.display = "none";
           appContainer.removeAttribute("hidden");
+          initializeApp();
         } else {
-          input.value = "";
-          input.style.borderColor = "var(--red)";
-          setTimeout(() => input.style.borderColor = "var(--line)", 2000);
+          passwordInput.value = "";
+          passwordInput.style.borderColor = "var(--red)";
+          setTimeout(() => passwordInput.style.borderColor = "var(--line)", 2000);
         }
       } catch (e) {
         console.error("Password verification failed:", e);
-        input.value = "";
-        input.style.borderColor = "var(--red)";
-        setTimeout(() => input.style.borderColor = "var(--line)", 2000);
+        passwordInput.value = "";
+        passwordInput.style.borderColor = "var(--red)";
+        setTimeout(() => passwordInput.style.borderColor = "var(--line)", 2000);
       }
     });
   } else {
+    const username = sessionStorage.getItem("username");
+    const userRole = sessionStorage.getItem("userRole");
+    window.currentUser = { username, role: userRole || "read-only" };
     passwordScreen.style.display = "none";
     appContainer.removeAttribute("hidden");
   }
 })();
+
+function isReadOnly() { return window.currentUser?.role === "read-only"; }
+function isAdmin() { return window.currentUser?.role === "admin"; }
+
+function initializeApp() {
+  // Show admin button only if user is admin
+  const adminButton = document.getElementById("adminConsoleButton");
+  if (adminButton && isAdmin()) {
+    adminButton.removeAttribute("hidden");
+  }
+  // Initialize rest of app
+  initializeHoldings();
+}
 
 // Server sync for holdings
 const serverSync = {
@@ -59,7 +82,10 @@ const serverSync = {
       const response = await fetch("/api/holdings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ holdings_accounts: accounts })
+        body: JSON.stringify({
+          username: window.currentUser?.username || sessionStorage.getItem("username"),
+          holdings_accounts: accounts
+        })
       });
       console.log("Server save response:", response.status, response.ok);
       if (!response.ok) {
@@ -111,8 +137,103 @@ document.getElementById("changePasswordForm").addEventListener("submit", async (
 // Logout
 document.getElementById("logoutButton")?.addEventListener("click", () => {
   sessionStorage.removeItem("passwordAuthenticated");
+  sessionStorage.removeItem("username");
+  sessionStorage.removeItem("userRole");
   location.reload();
 });
+
+// Admin console
+document.getElementById("adminConsoleButton")?.addEventListener("click", () => {
+  document.getElementById("adminPanel").classList.remove("hidden");
+  loadAdminUsersList();
+});
+document.getElementById("adminClose")?.addEventListener("click", () => {
+  document.getElementById("adminPanel").classList.add("hidden");
+  document.getElementById("adminForm").reset();
+});
+document.getElementById("createUserButton")?.addEventListener("click", async () => {
+  const newUsername = document.getElementById("newUsernameInput").value.trim();
+  const newPassword = document.getElementById("newUserPasswordInput").value;
+  const role = document.getElementById("newUserRoleSelect").value;
+  
+  if (!newUsername || !newPassword) {
+    showToast("Username and password required");
+    return;
+  }
+  
+  try {
+    const response = await fetch("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: window.currentUser?.username,
+        newUsername,
+        newPassword,
+        role
+      })
+    });
+    
+    if (response.ok) {
+      showToast(`User "${newUsername}" created successfully`);
+      document.getElementById("newUsernameInput").value = "";
+      document.getElementById("newUserPasswordInput").value = "";
+      loadAdminUsersList();
+    } else {
+      const error = await response.json();
+      showToast("Error: " + (error.error || "Failed to create user"));
+    }
+  } catch (e) {
+    console.error("Failed to create user:", e);
+    showToast("Failed to create user");
+  }
+});
+
+async function loadAdminUsersList() {
+  try {
+    const response = await fetch("/api/admin/users?username=" + encodeURIComponent(window.currentUser?.username || ""));
+    if (!response.ok) throw new Error("Failed to load users");
+    
+    const data = await response.json();
+    const usersList = document.getElementById("usersList");
+    usersList.innerHTML = data.users.map(user => `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--line);">
+        <div>
+          <strong>${user.username}</strong>
+          <small style="display: block; color: var(--muted);">${user.role}</small>
+        </div>
+        ${user.username !== "moosadrahul" ? `<button type="button" class="delete-user-btn" data-username="${user.username}" style="padding: 0.5rem 1rem; background: var(--red); color: white; border: none; border-radius: 4px; cursor: pointer;">Delete</button>` : ""}
+      </div>
+    `).join("");
+    
+    usersList.querySelectorAll(".delete-user-btn").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        const username = btn.dataset.username;
+        if (confirm(`Delete user "${username}"?`)) {
+          try {
+            const response = await fetch(`/api/admin/users/${username}`, {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username: window.currentUser?.username })
+            });
+            if (response.ok) {
+              showToast(`User "${username}" deleted`);
+              loadAdminUsersList();
+            } else {
+              showToast("Failed to delete user");
+            }
+          } catch (e) {
+            console.error("Failed to delete user:", e);
+            showToast("Failed to delete user");
+          }
+        }
+      });
+    });
+  } catch (e) {
+    console.error("Failed to load users:", e);
+    document.getElementById("usersList").innerHTML = '<p class="muted">Failed to load users</p>';
+  }
+}
 
 const state = { symbol: "AAPL", timeframe: "1Y", prices: [], indicators: {}, source: "Demo data", exchange: "NASDAQ" };
 const storedHoldings = JSON.parse(localStorage.getItem("trend-analysis-holdings") || "[]");
@@ -452,6 +573,7 @@ function saveAccountName(input) {
   renderPortfolioSections();
 }
 function addHoldingToAccount(event, form) {
+  if (isReadOnly()) return showToast("Read-only users cannot add holdings.");
   event.preventDefault();
   const account = holdingAccounts.find((item) => item.id === form.dataset.accountForm);
   const symbol = form.elements.symbol.value.trim().toUpperCase();
@@ -467,6 +589,7 @@ function addHoldingToAccount(event, form) {
   refreshPortfolioOverview();
 }
 function saveHoldingDividend(input) {
+  if (isReadOnly()) return showToast("Read-only users cannot modify holdings.");
   const account = holdingAccounts.find((item) => item.id === input.dataset.accountId);
   const holding = account?.holdings.find((item) => item.id === input.dataset.holdingId);
   if (!holding) return;
@@ -487,6 +610,7 @@ function saveHoldingDividend(input) {
   showToast(`Dividend settings updated for ${holding.symbol}.`);
 }
 function removeHolding(accountId, holdingId) {
+  if (isReadOnly()) return showToast("Read-only users cannot modify holdings.");
   const account = holdingAccounts.find((item) => item.id === accountId);
   if (!account) return;
   account.holdings = account.holdings.filter((holding) => holding.id !== holdingId);
@@ -551,6 +675,7 @@ function createHoldingAccount() {
   showToast(`${account.name} created.`);
 }
 function deleteHoldingAccount(accountId) {
+  if (isReadOnly()) return showToast("Read-only users cannot delete portfolios.");
   if (holdingAccounts.length === 1) {
     showToast("Keep at least one portfolio.");
     return;
@@ -566,6 +691,7 @@ function closeDeletePortfolioDialog() {
   document.querySelector("#deletePortfolioDialog").classList.add("hidden");
 }
 function confirmDeleteHoldingAccount() {
+  if (isReadOnly()) return showToast("Read-only users cannot delete portfolios.");
   const accountId = pendingDeleteAccountId;
   const account = holdingAccounts.find((item) => item.id === accountId);
   if (!account) return closeDeletePortfolioDialog();

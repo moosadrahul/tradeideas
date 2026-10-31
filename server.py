@@ -181,6 +181,12 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/auth/change-password":
             self.handle_change_password()
             return
+        if parsed.path == "/api/admin/users":
+            self.handle_admin_users()
+            return
+        if parsed.path.startswith("/api/admin/users/"):
+            self.handle_admin_user_action(parsed.path)
+            return
         if parsed.path == "/api/holdings":
             self.handle_holdings_save()
             return
@@ -272,61 +278,93 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_json(200, {"holdings_accounts": holdings_accounts})
 
     def handle_holdings_save(self):
-        # Use default admin user for holdings (protected by password screen)
-        username = "admin"
-        if username not in USERS:
-            USERS[username] = {"salt": "", "password": "", "portfolio": None, "holdings_accounts": []}
+        # Only admin can save holdings
         try:
             data = self.read_json()
+            username = data.get("username", "")
+        except (ValueError, TypeError):
+            self.send_json(400, {"error": "Invalid request"})
+            return
+        
+        if username != "moosadrahul":
+            self.send_json(403, {"error": "Only admin can modify holdings"})
+            return
+        
+        if username not in USERS:
+            USERS[username] = {
+                "salt": "",
+                "password": "",
+                "role": "admin",
+                "portfolio": None,
+                "holdings_accounts": []
+            }
+        
+        try:
             holdings_accounts = data.get("holdings_accounts", [])
         except (ValueError, TypeError):
             self.send_json(400, {"error": "Invalid holdings data"})
             return
+        
         if not isinstance(holdings_accounts, list):
             self.send_json(400, {"error": "Invalid holdings data"})
             return
+        
         USERS[username]["holdings_accounts"] = holdings_accounts
         save_users()
         self.send_json(200, {"ok": True})
 
     def handle_verify_password(self):
-        # Verify password for default admin user
-        username = "admin"
         try:
             payload = self.read_json()
+            username = str(payload.get("username", "")).strip()
             password = str(payload.get("password", ""))
         except (ValueError, TypeError):
             self.send_json(400, {"error": "Invalid request"})
             return
         
-        # Initialize admin user if it doesn't exist
+        if not username or not password:
+            self.send_json(400, {"error": "Username and password required"})
+            return
+        
+        # Initialize user if doesn't exist
         if username not in USERS:
-            USERS[username] = {"salt": "", "password": "", "portfolio": None, "holdings_accounts": []}
+            USERS[username] = {
+                "salt": "",
+                "password": "",
+                "role": "admin" if username == "moosadrahul" else "read-only",
+                "portfolio": None,
+                "holdings_accounts": []
+            }
             save_users()
         
         record = USERS[username]
         
-        # If a password is set on the server, verify against it
+        # Verify password
         if record.get("password"):
             salt = base64.b64decode(record["salt"])
             _, digest = hash_password(password, salt)
             if secrets.compare_digest(digest, record["password"]):
-                self.send_json(200, {"ok": True})
+                self.send_json(200, {
+                    "ok": True,
+                    "role": record.get("role", "read-only")
+                })
                 return
         
-        # Migration: If no password set, or verification failed, allow the hardcoded password as fallback
-        if password == "tradeideas2025":
-            # If no password was set yet, initialize it with the hardcoded password
+        # Fallback: allow "tradeideas2025" only for admin
+        if username == "moosadrahul" and password == "tradeideas2025":
             if not record.get("password"):
                 new_salt, new_digest = hash_password(password)
                 USERS[username]["salt"] = new_salt
                 USERS[username]["password"] = new_digest
                 save_users()
-            self.send_json(200, {"ok": True})
+            self.send_json(200, {
+                "ok": True,
+                "role": "admin"
+            })
             return
         
         # Password doesn't match
-        self.send_json(401, {"error": "Invalid password"})
+        self.send_json(401, {"error": "Invalid username or password"})
 
     def handle_change_password(self):
         # Change password for default admin user (protected by password screen)
@@ -442,6 +480,91 @@ class Handler(SimpleHTTPRequestHandler):
         payload = {"source": "Twelve Data", "rows": rows, "errors": errors, "cached": False}
         SCAN_CACHE[cache_key] = {"created": time.time(), "payload": payload}
         self.send_json(200, payload)
+
+    def handle_admin_users(self):
+        # Check if admin
+        try:
+            payload = self.read_json()
+        except:
+            payload = {}
+        
+        # Extract username from request or session
+        request_username = payload.get("username", "")
+        
+        if self.command == "GET":
+            # List all users (admin only)
+            if request_username != "moosadrahul":
+                self.send_json(403, {"error": "Admin access required"})
+                return
+            users_list = [
+                {"username": username, "role": user.get("role", "read-only")}
+                for username, user in USERS.items()
+            ]
+            self.send_json(200, {"users": users_list})
+        
+        elif self.command == "POST":
+            # Create new user (admin only)
+            if request_username != "moosadrahul":
+                self.send_json(403, {"error": "Admin access required"})
+                return
+            
+            new_username = payload.get("newUsername", "").strip()
+            new_password = payload.get("newPassword", "")
+            new_role = payload.get("role", "read-only")
+            
+            if not new_username or not new_password:
+                self.send_json(400, {"error": "Username and password required"})
+                return
+            
+            if new_username in USERS:
+                self.send_json(400, {"error": "User already exists"})
+                return
+            
+            salt, digest = hash_password(new_password)
+            USERS[new_username] = {
+                "salt": salt,
+                "password": digest,
+                "role": new_role,
+                "portfolio": None,
+                "holdings_accounts": []
+            }
+            save_users()
+            self.send_json(200, {"ok": True, "username": new_username})
+    
+    def handle_admin_user_action(self, path):
+        try:
+            payload = self.read_json()
+        except:
+            payload = {}
+        
+        request_username = payload.get("username", "")
+        
+        # Check if admin
+        if request_username != "moosadrahul":
+            self.send_json(403, {"error": "Admin access required"})
+            return
+        
+        # Extract target username from path
+        parts = path.split("/")
+        if len(parts) < 5:
+            self.send_json(400, {"error": "Invalid request"})
+            return
+        
+        target_username = parts[4]
+        action = parts[5] if len(parts) > 5 else None
+        
+        if self.command == "DELETE":
+            # Delete user
+            if target_username == "moosadrahul":
+                self.send_json(400, {"error": "Cannot delete admin user"})
+                return
+            
+            if target_username in USERS:
+                del USERS[target_username]
+                save_users()
+                self.send_json(200, {"ok": True})
+            else:
+                self.send_json(404, {"error": "User not found"})
 
     def send_json(self, status, payload, cookie=None, clear_cookie=False):
         body = json.dumps(payload).encode()
