@@ -498,6 +498,7 @@ function removeHolding(accountId, holdingId) {
 async function refreshPortfolioOverview() {
   const valueElement = document.querySelector("#portfolioOverviewValue");
   const incomeElement = document.querySelector("#portfolioOverviewIncome");
+  const gainLossElement = document.querySelector("#portfolioOverviewGainLoss");
   const accountsElement = document.querySelector("#portfolioAccountValues");
   const statusElement = document.querySelector("#portfolioOverviewStatus");
   const accountResults = await Promise.all(holdingAccounts.map(async (account) => {
@@ -514,12 +515,17 @@ async function refreshPortfolioOverview() {
     return { account, value: values.reduce((sum, value) => sum + (value || 0), 0), failed: values.filter((value) => value === null).length };
   }));
   const totalValue = accountResults.reduce((sum, result) => sum + result.value, 0);
+  const totalBookValue = holdingAccounts.reduce((sum, account) => sum + account.holdings.reduce((accountSum, holding) => accountSum + (holding.quantity * holding.price), 0), 0);
+  const totalGainLoss = totalValue - totalBookValue;
   const totalProjectedIncome = holdingAccounts.reduce((sum, account) => sum + account.holdings.reduce((accountSum, holding) => {
     const dividend = getDividendSettings(holding);
     return accountSum + getProjectedAnnualIncome(holding.quantity, dividend.amount, dividend.frequency);
   }, 0), 0);
   valueElement.textContent = formatHoldingMoney(totalValue);
   incomeElement.textContent = formatHoldingMoney(totalProjectedIncome);
+  gainLossElement.textContent = `${totalGainLoss >= 0 ? "+" : ""}${formatHoldingMoney(totalGainLoss)}`;
+  gainLossElement.classList.toggle("positive", totalGainLoss >= 0);
+  gainLossElement.classList.toggle("negative", totalGainLoss < 0);
   accountsElement.innerHTML = accountResults.map(({ account, value, failed }) => `<div class="portfolio-account-value"><strong>${account.name}</strong><span>${formatHoldingMoney(value)}</span>${failed ? `<small>${failed} price${failed === 1 ? "" : "s"} unavailable</small>` : ""}</div>`).join("");
   statusElement.textContent = `${accountResults.length} account type${accountResults.length === 1 ? "" : "s"}`;
 }
