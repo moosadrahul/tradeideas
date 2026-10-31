@@ -306,28 +306,27 @@ class Handler(SimpleHTTPRequestHandler):
         
         record = USERS[username]
         
-        # Migration: If no password is set, allow the legacy hardcoded password
-        if not record.get("password"):
-            if password == "tradeideas2025":
-                # Initialize the admin account with this password
+        # If a password is set on the server, verify against it
+        if record.get("password"):
+            salt = base64.b64decode(record["salt"])
+            _, digest = hash_password(password, salt)
+            if secrets.compare_digest(digest, record["password"]):
+                self.send_json(200, {"ok": True})
+                return
+        
+        # Migration: If no password set, or verification failed, allow the hardcoded password as fallback
+        if password == "tradeideas2025":
+            # If no password was set yet, initialize it with the hardcoded password
+            if not record.get("password"):
                 new_salt, new_digest = hash_password(password)
                 USERS[username]["salt"] = new_salt
                 USERS[username]["password"] = new_digest
                 save_users()
-                self.send_json(200, {"ok": True})
-                return
-            else:
-                self.send_json(401, {"error": "Invalid password"})
-                return
-        
-        # Normal password verification
-        salt = base64.b64decode(record["salt"])
-        _, digest = hash_password(password, salt)
-        if not secrets.compare_digest(digest, record["password"]):
-            self.send_json(401, {"error": "Invalid password"})
+            self.send_json(200, {"ok": True})
             return
         
-        self.send_json(200, {"ok": True})
+        # Password doesn't match
+        self.send_json(401, {"error": "Invalid password"})
 
     def handle_change_password(self):
         # Change password for default admin user (protected by password screen)
