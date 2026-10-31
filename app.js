@@ -548,7 +548,7 @@ function performanceMarkup(results) {
   const totalGainLoss = performance.reduce((sum, item) => sum + item.gainLoss, 0);
   const totalGainLossPercent = totalBookValue ? totalGainLoss / totalBookValue * 100 : 0;
   const valueClass = (value) => value >= 0 ? "positive" : "negative";
-  return { asOf: `${successful.length} live position${successful.length === 1 ? "" : "s"}`, summary: `<div class="holding-performance-summary"><div><span>Portfolio current value</span><strong>${formatHoldingMoney(totalCurrentValue)}</strong></div><div><span>Total gain/loss</span><strong class="${valueClass(totalGainLoss)}">${totalGainLoss >= 0 ? "+" : ""}${formatHoldingMoney(totalGainLoss)}</strong></div><div><span>Return on book value</span><strong class="${valueClass(totalGainLossPercent)}">${formatPercent(totalGainLossPercent)}</strong></div><div><span>Positions in gain</span><strong>${performance.filter((item) => item.gainLoss > 0).length} of ${performance.length}</strong></div></div>` };
+  return { asOf: `${successful.length} live position${successful.length === 1 ? "" : "s"}`, summary: `<div class="holding-performance-summary"><div><span>Portfolio current value</span><strong>${formatHoldingMoney(totalCurrentValue)}</strong></div><div><span>Total gain/loss</span><strong class="${valueClass(totalGainLoss)}">${totalGainLoss >= 0 ? "+" : ""}${formatHoldingMoney(totalGainLoss)}</strong></div><div><span>Return on book value</span><strong class="${valueClass(totalGainLossPercent)}">${formatPercent(totalGainLossPercent)}</strong></div></div>` };
 }
 function portfolioTotalsMarkup(account, results) {
   const performance = results.filter((result) => !result.error).map(({ holding, market }) => getHoldingPerformance(holding, market));
@@ -973,7 +973,7 @@ function renderHoldingsPerformance(results) {
   const totalGainLoss = performance.reduce((sum, item) => sum + item.gainLoss, 0);
   const totalGainLossPercent = totalBookValue ? totalGainLoss / totalBookValue * 100 : 0;
   const valueClass = (value) => value >= 0 ? "positive" : "negative";
-  element.innerHTML = `<div class="holding-performance-summary"><div><span>Portfolio current value</span><strong>${formatHoldingMoney(totalCurrentValue)}</strong></div><div><span>Total gain/loss</span><strong class="${valueClass(totalGainLoss)}">${totalGainLoss >= 0 ? "+" : ""}${formatHoldingMoney(totalGainLoss)}</strong></div><div><span>Return on book value</span><strong class="${valueClass(totalGainLossPercent)}">${formatPercent(totalGainLossPercent)}</strong></div><div><span>Positions in gain</span><strong>${performance.filter((item) => item.gainLoss > 0).length} of ${performance.length}</strong></div></div>`;
+  element.innerHTML = `<div class="holding-performance-summary"><div><span>Portfolio current value</span><strong>${formatHoldingMoney(totalCurrentValue)}</strong></div><div><span>Total gain/loss</span><strong class="${valueClass(totalGainLoss)}">${totalGainLoss >= 0 ? "+" : ""}${formatHoldingMoney(totalGainLoss)}</strong></div><div><span>Return on book value</span><strong class="${valueClass(totalGainLossPercent)}">${formatPercent(totalGainLossPercent)}</strong></div></div>`;
   asOf.textContent = `${successful.length} live position${successful.length === 1 ? "" : "s"}`;
 }
 function saveHoldingQuantity(input) {
