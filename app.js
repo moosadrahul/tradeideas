@@ -25,27 +25,13 @@
           sessionStorage.setItem("username", username);
           sessionStorage.setItem("userRole", data.role || "read-only");
           window.currentUser = { username, role: data.role || "read-only" };
-          
-          // Store any warnings/messages from server
-          if (data.warning) {
-            sessionStorage.setItem("persistenceWarning", data.warning);
-          }
-          if (data.message) {
-            sessionStorage.setItem("loginMessage", data.message);
-          }
-          
           passwordScreen.style.display = "none";
           appContainer.removeAttribute("hidden");
           initializeApp();
         } else {
-          const errorData = await response.json();
           passwordInput.value = "";
           passwordInput.style.borderColor = "var(--red)";
-          passwordInput.placeholder = errorData.error || "Invalid password. Try again.";
-          setTimeout(() => {
-            passwordInput.style.borderColor = "var(--line)";
-            passwordInput.placeholder = "Password";
-          }, 2000);
+          setTimeout(() => passwordInput.style.borderColor = "var(--line)", 2000);
         }
       } catch (e) {
         console.error("Password verification failed:", e);
@@ -72,20 +58,6 @@ function initializeApp() {
   if (adminButton && isAdmin()) {
     adminButton.removeAttribute("hidden");
   }
-  
-  // Show any persistence warnings
-  const persistenceWarning = sessionStorage.getItem("persistenceWarning");
-  if (persistenceWarning) {
-    showToast(persistenceWarning);
-    sessionStorage.removeItem("persistenceWarning");
-  }
-  
-  const loginMessage = sessionStorage.getItem("loginMessage");
-  if (loginMessage) {
-    showToast(loginMessage);
-    sessionStorage.removeItem("loginMessage");
-  }
-  
   // Initialize rest of app
   initializeHoldings();
 }
