@@ -113,6 +113,10 @@
           <label>Password<input id="newUserPasswordInput" type="password" minlength="8" placeholder="Password" required /></label>
           <label>Role<select id="newUserRoleSelect"><option value="read-only">Read-only</option><option value="admin">Admin</option></select></label>
           <button class="primary-button" id="createUserButton" type="button">Create User</button>
+          <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--line);"/>
+          <p class="card-kicker">Data Migration</p>
+          <p class="muted">Migrate old portfolio data to new holdings format (one-time operation)</p>
+          <button class="primary-button" id="migrateHoldingsButton" type="button">Migrate Holdings Data</button>
         </div>
       </form>
     </div>

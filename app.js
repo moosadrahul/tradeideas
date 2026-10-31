@@ -196,6 +196,43 @@ document.getElementById("createUserButton")?.addEventListener("click", async () 
   }
 });
 
+document.getElementById("migrateHoldingsButton")?.addEventListener("click", async () => {
+  const confirmed = confirm("This will migrate old portfolio data to new holdings format.\n\nContinue?");
+  if (!confirmed) return;
+  
+  const button = document.getElementById("migrateHoldingsButton");
+  button.disabled = true;
+  button.textContent = "Migrating...";
+  
+  try {
+    const response = await fetch("/api/admin/migrate-holdings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: window.currentUser?.username
+      })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      showToast(data.message);
+      console.log("Migration result:", data.migrated);
+      if (data.migrated.length > 0) {
+        setTimeout(() => initializeHoldings(), 1000);
+      }
+    } else {
+      const error = await response.json();
+      showToast("Error: " + (error.error || "Migration failed"));
+    }
+  } catch (e) {
+    console.error("Migration failed:", e);
+    showToast("Migration failed");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Migrate Holdings Data";
+  }
+});
+
 async function loadAdminUsersList() {
   try {
     const response = await fetch("/api/admin/users?username=" + encodeURIComponent(window.currentUser?.username || ""));

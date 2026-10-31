@@ -181,6 +181,9 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/auth/change-password":
             self.handle_change_password()
             return
+        if parsed.path == "/api/admin/migrate-holdings":
+            self.handle_migrate_holdings()
+            return
         if parsed.path == "/api/admin/users":
             self.handle_admin_users()
             return
@@ -517,6 +520,51 @@ class Handler(SimpleHTTPRequestHandler):
         payload = {"source": "Twelve Data", "rows": rows, "errors": errors, "cached": False}
         SCAN_CACHE[cache_key] = {"created": time.time(), "payload": payload}
         self.send_json(200, payload)
+
+    def handle_migrate_holdings(self):
+        # Admin endpoint to manually trigger data migration from old portfolio format
+        try:
+            payload = self.read_json()
+            username = payload.get("username", "")
+        except:
+            self.send_json(400, {"error": "Invalid request"})
+            return
+        
+        # Only admin can trigger migration
+        if username != "moosadrahul":
+            self.send_json(403, {"error": "Admin access required"})
+            return
+        
+        migrated_users = []
+        for user_id, user_record in USERS.items():
+            portfolio = user_record.get("portfolio")
+            holdings_accounts = user_record.get("holdings_accounts", [])
+            
+            # Migrate if portfolio exists and has data, and holdings_accounts is empty
+            if portfolio and isinstance(portfolio, list) and len(portfolio) > 0:
+                if not holdings_accounts or (isinstance(holdings_accounts, list) and len(holdings_accounts) == 0):
+                    print(f"Migrating portfolio to holdings_accounts for {user_id}")
+                    user_record["holdings_accounts"] = portfolio
+                    user_record["portfolio"] = None
+                    migrated_users.append({
+                        "username": user_id,
+                        "accounts": len(portfolio),
+                        "holdings": sum(len(acc.get("holdings", [])) for acc in portfolio)
+                    })
+        
+        if migrated_users:
+            save_users()
+            self.send_json(200, {
+                "ok": True,
+                "migrated": migrated_users,
+                "message": f"Migrated data for {len(migrated_users)} user(s)"
+            })
+        else:
+            self.send_json(200, {
+                "ok": True,
+                "migrated": [],
+                "message": "No users needed migration"
+            })
 
     def handle_admin_users(self):
         # Check if admin
