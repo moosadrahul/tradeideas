@@ -222,8 +222,8 @@ async function renderPortfolioSections() {
         }
         try {
           const response = await fetch(`/api/symbol-search?symbol=${encodeURIComponent(term)}`);
+          if (!response.ok) throw new Error(`Symbol search failed: ${response.status}`);
           const payload = await response.json();
-          if (!response.ok) throw new Error(payload.error || "Symbol search failed");
           const results = (payload.results || []).filter((result) => supportedExchanges.has(result.exchange));
           if (results.length) {
             suggestionsContainer.innerHTML = results.map((result, index) => `<button type="button" class="symbol-option" data-result-index="${index}" role="option" data-symbol="${result.symbol}" data-exchange="${result.exchange}"><strong>${result.display_symbol}</strong><em>${result.exchange}</em><small>${result.name}${result.type ? ` · ${result.type}` : ""}</small></button>`).join("");
@@ -243,6 +243,9 @@ async function renderPortfolioSections() {
         } catch (error) {
           suggestionsContainer.innerHTML = `<div class="symbol-option"><small>${error.message}</small></div>`;
           suggestionsContainer.classList.add("show");
+        }
+      }, 250);
+    });
         }
       }, 250);
     });
