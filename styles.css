@@ -1,4 +1,4 @@
-:root{--ink:#17201d;--muted:#75817b;--line:#e4e9e5;--paper:#f7f8f5;--card:#fff;--green:#26a978;--green-dark:#176b4d;--mint:#e7f6ef;--red:#d76b65;--navy:#1d3331}
+:root{--ink:#e7eeeb;--muted:#91a19b;--line:#252525;--paper:#000;--card:#101010;--green:#26a978;--green-dark:#176b4d;--mint:#171717;--navy:#050505}
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:"Space Grotesk",sans-serif}button,input,select{font:inherit}button{cursor:pointer}
 .password-screen{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--paper);display:grid;place-items:center;z-index:9999}
 .password-screen-content{text-align:center}
@@ -24,7 +24,6 @@
 .horizon-card .card-header>div:last-child{display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:118px}
 .horizon-card .scan-source{display:block;text-align:right;white-space:nowrap}
 .chart-wrap{position:relative;padding:0 12px 18px 34px}.chart-axis-label{position:absolute;color:var(--muted);font:10px "DM Mono",monospace}.chart-axis-y{left:0;top:50%;transform:rotate(-90deg) translateX(-50%);transform-origin:left top}.chart-axis-x{bottom:0;left:50%;transform:translateX(-50%)}
-:root{--ink:#e7eeeb;--muted:#91a19b;--line:#252525;--paper:#000;--card:#101010;--mint:#171717;--navy:#050505}
 body{background:var(--paper);color:var(--ink)}
 .topbar{border-bottom:0}
 .brand{color:var(--ink)}
