@@ -175,6 +175,9 @@ class Handler(SimpleHTTPRequestHandler):
                 SESSIONS.pop(session[0], None)
             self.send_json(200, {"ok": True}, clear_cookie=True)
             return
+        if parsed.path == "/api/auth/verify-password":
+            self.handle_verify_password()
+            return
         if parsed.path == "/api/auth/change-password":
             self.handle_change_password()
             return
@@ -284,6 +287,35 @@ class Handler(SimpleHTTPRequestHandler):
             return
         USERS[username]["holdings_accounts"] = holdings_accounts
         save_users()
+        self.send_json(200, {"ok": True})
+
+    def handle_verify_password(self):
+        # Verify password for default admin user
+        username = "admin"
+        try:
+            payload = self.read_json()
+            password = str(payload.get("password", ""))
+        except (ValueError, TypeError):
+            self.send_json(400, {"error": "Invalid request"})
+            return
+        
+        # Initialize admin user if it doesn't exist
+        if username not in USERS:
+            USERS[username] = {"salt": "", "password": "", "portfolio": None, "holdings_accounts": []}
+            save_users()
+        
+        record = USERS[username]
+        # If no password set yet, deny access
+        if not record.get("password"):
+            self.send_json(401, {"error": "Password not set"})
+            return
+        
+        salt = base64.b64decode(record["salt"])
+        _, digest = hash_password(password, salt)
+        if not secrets.compare_digest(digest, record["password"]):
+            self.send_json(401, {"error": "Invalid password"})
+            return
+        
         self.send_json(200, {"ok": True})
 
     def handle_change_password(self):

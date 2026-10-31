@@ -1,19 +1,33 @@
 // Password protection
 (function() {
-  const PASSWORD = "tradeideas2025";
   const passwordScreen = document.getElementById("passwordScreen");
   const appContainer = document.getElementById("appContainer");
   const passwordForm = document.getElementById("passwordForm");
   
   if (!sessionStorage.getItem("passwordAuthenticated")) {
-    passwordForm.addEventListener("submit", (e) => {
+    passwordForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const input = document.getElementById("passwordInput");
-      if (input.value === PASSWORD) {
-        sessionStorage.setItem("passwordAuthenticated", "true");
-        passwordScreen.style.display = "none";
-        appContainer.removeAttribute("hidden");
-      } else {
+      const password = input.value;
+      
+      try {
+        const response = await fetch("/api/auth/verify-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password })
+        });
+        
+        if (response.ok) {
+          sessionStorage.setItem("passwordAuthenticated", "true");
+          passwordScreen.style.display = "none";
+          appContainer.removeAttribute("hidden");
+        } else {
+          input.value = "";
+          input.style.borderColor = "var(--red)";
+          setTimeout(() => input.style.borderColor = "var(--line)", 2000);
+        }
+      } catch (e) {
+        console.error("Password verification failed:", e);
         input.value = "";
         input.style.borderColor = "var(--red)";
         setTimeout(() => input.style.borderColor = "var(--line)", 2000);
