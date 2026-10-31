@@ -1,3 +1,30 @@
+// Password protection
+(function() {
+  const PASSWORD = "tradeideas2025";
+  const passwordScreen = document.getElementById("passwordScreen");
+  const appContainer = document.getElementById("appContainer");
+  const passwordForm = document.getElementById("passwordForm");
+  
+  if (!sessionStorage.getItem("passwordAuthenticated")) {
+    passwordForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = document.getElementById("passwordInput");
+      if (input.value === PASSWORD) {
+        sessionStorage.setItem("passwordAuthenticated", "true");
+        passwordScreen.style.display = "none";
+        appContainer.removeAttribute("hidden");
+      } else {
+        input.value = "";
+        input.style.borderColor = "var(--red)";
+        setTimeout(() => input.style.borderColor = "var(--line)", 2000);
+      }
+    });
+  } else {
+    passwordScreen.style.display = "none";
+    appContainer.removeAttribute("hidden");
+  }
+})();
+
 const state = { symbol: "AAPL", timeframe: "1Y", prices: [], indicators: {}, source: "Demo data", exchange: "NASDAQ" };
 const storedHoldings = JSON.parse(localStorage.getItem("trend-analysis-holdings") || "[]");
 let holdingAccounts = JSON.parse(localStorage.getItem("trend-analysis-holding-accounts") || "null");
