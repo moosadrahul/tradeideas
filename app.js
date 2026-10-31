@@ -1195,22 +1195,40 @@ async function parseCSVFile(file) {
         return;
       }
       
+      // Try to find the actual header row
+      // Look for a row containing "Symbol" or "Asset type" (common headers)
+      let headerRowIdx = 0;
+      for (let i = 0; i < Math.min(lines.length, 50); i++) {
+        const lowerLine = lines[i].toLowerCase();
+        if (lowerLine.includes('symbol') || lowerLine.includes('ticker') || 
+            lowerLine.includes('asset type')) {
+          headerRowIdx = i;
+          break;
+        }
+      }
+      
       // Parse header row (case-insensitive)
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const headerLine = lines[headerRowIdx];
+      const headers = headerLine.split(',').map(h => h.trim().toLowerCase());
+      
       const symbolColIdx = headers.findIndex(h => h.includes('symbol') || h.includes('ticker'));
-      const exchangeColIdx = headers.findIndex(h => h.includes('exchange') || h.includes('market'));
+      const exchangeColIdx = headers.findIndex(h => h.includes('exchange') || h.includes('market') || h.includes('currency'));
       const quantityColIdx = headers.findIndex(h => h.includes('quantity') || h.includes('qty') || h.includes('shares'));
-      const priceColIdx = headers.findIndex(h => h.includes('price') || h.includes('cost') || h.includes('average'));
+      const priceColIdx = headers.findIndex(h => h.includes('price') || h.includes('cost') || h.includes('average') || h.includes('book'));
       
       if (symbolColIdx === -1 || quantityColIdx === -1 || priceColIdx === -1) {
-        reject(new Error("CSV must have Symbol/Ticker, Quantity/QTY, and Average Cost/Price columns"));
+        reject(new Error(`CSV must have Symbol/Ticker, Quantity/QTY, and Average Cost/Price columns. Found headers: ${headers.join(', ')}`));
         return;
       }
       
-      // Parse data rows
+      // Parse data rows (starting from row after headers)
       const holdings = [];
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim()).filter(v => v);
+      for (let i = headerRowIdx + 1; i < lines.length; i++) {
+        const line = lines[i];
+        // Skip empty lines or lines that start with quotes (likely metadata)
+        if (!line || line.startsWith('"') && !line.includes(',')) continue;
+        
+        const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, '')).filter(v => v);
         if (values.length < 3) continue;
         
         const symbol = values[symbolColIdx]?.toUpperCase() || '';
@@ -1227,7 +1245,7 @@ async function parseCSVFile(file) {
         } else if (exchange) {
           const exchangeMap = {
             'CDN': 'TSX', 'TORONTO': 'TSX', 'TSX': 'TSX',
-            'US': 'NAS', 'NASDAQ': 'NAS', 'NYSE': 'NYS', 'NYSE': 'NYS'
+            'US': 'NAS', 'NASDAQ': 'NAS', 'NYSE': 'NYS'
           };
           const mapped = exchangeMap[exchange] || 'NAS';
           mappedSymbol = `${symbol}:${mapped}`;
