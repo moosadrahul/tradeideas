@@ -1389,12 +1389,36 @@ async function showImportPreview(holdings) {
   });
 }
 
+// Initialize import button handlers
+function initializeImportHandlers() {
+  console.log("Initializing import handlers...");
+  
+  const importBtn = document.querySelector("#importCSVButton");
+  const fileInput = document.querySelector("#csvFileInput");
+  
+  console.log("Import button found:", !!importBtn);
+  console.log("File input found:", !!fileInput);
+  
+  if (!importBtn || !fileInput) {
+    console.error("ERROR: Import elements not found in DOM");
+    return;
+  }
+  
+  // Button click handler
+  importBtn.addEventListener("click", (e) => {
+    console.log("Import button clicked!");
+    e.preventDefault();
+    fileInput.click();
+  });
+  
+  console.log("Import button handler attached");
+  
+  // File input change handler
+  fileInput.addEventListener("change", handleFileImport);
+  console.log("File input handler attached");
+}
 
-document.querySelector("#importCSVButton")?.addEventListener("click", () => {
-  document.querySelector("#csvFileInput").click();
-});
-
-document.querySelector("#csvFileInput")?.addEventListener("change", async (event) => {
+async function handleFileImport(event) {
   const file = event.target.files[0];
   console.log("File selected:", file?.name);
   if (!file) return;
@@ -1494,4 +1518,11 @@ document.querySelector("#csvFileInput")?.addEventListener("change", async (event
   
   // Reset file input
   event.target.value = '';
-});
+}
+
+// Call initialization when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeImportHandlers);
+} else {
+  initializeImportHandlers();
+}
