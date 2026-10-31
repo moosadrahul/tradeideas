@@ -54,11 +54,32 @@ SYMBOL_SEARCH_CACHE = {}
 
 
 def fetch_prices(symbol, outputsize, api_key, start_date=None, end_date=None, interval="1day"):
-    # Extract base symbol without exchange code (e.g., "AAPL" from "AAPL:NAS")
-    base_symbol = symbol.split(':')[0] if ':' in symbol else symbol
+    # Parse symbol and exchange code (e.g., "NKE:TSX" → base="NKE", exchange="TSX")
+    parts = symbol.split(':')
+    base_symbol = parts[0]
+    exchange_code = parts[1] if len(parts) > 1 else None
+    
+    # Map our exchange codes to Twelve Data format
+    # US markets default to just the symbol (NASDAQ, NYSE)
+    # Non-US markets need the exchange code appended
+    exchange_map = {
+        'NAS': '',      # NASDAQ - send just symbol
+        'NYS': '',      # NYSE - send just symbol
+        'TSX': ':TSX',  # Toronto Stock Exchange
+        'LSE': ':LSE',  # London Stock Exchange
+    }
+    
+    # Build the symbol to send to Twelve Data
+    if exchange_code and exchange_code in exchange_map:
+        api_symbol = base_symbol + exchange_map[exchange_code]
+    elif exchange_code:
+        # For unknown exchanges, try appending the code
+        api_symbol = f"{base_symbol}:{exchange_code}"
+    else:
+        api_symbol = base_symbol
     
     request_params = {
-        "symbol": base_symbol,
+        "symbol": api_symbol,
         "interval": interval,
         "outputsize": outputsize,
         "apikey": api_key,
