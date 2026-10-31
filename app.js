@@ -349,6 +349,7 @@ function removeHolding(accountId, holdingId) {
   const account = holdingAccounts.find((item) => item.id === accountId);
   if (!account) return;
   account.holdings = account.holdings.filter((holding) => holding.id !== holdingId);
+  if (accountId === currentHoldingAccountId) holdings = account.holdings;
   saveHoldings();
   renderPortfolioSections();
   refreshPortfolioOverview();
