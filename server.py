@@ -324,6 +324,11 @@ class Handler(SimpleHTTPRequestHandler):
         
         # Get user and check role
         user_record = USERS[username]
+        # Ensure role is set (for backward compatibility with old user records)
+        if "role" not in user_record:
+            user_record["role"] = "admin" if username == "moosadrahul" else "read-only"
+            save_users()
+        
         user_role = user_record.get("role", "read-only")
         
         # Read-only check: prevent read-only users from modifying holdings
@@ -378,6 +383,11 @@ class Handler(SimpleHTTPRequestHandler):
             save_users()
         
         record = USERS[username]
+        
+        # Ensure role is set (for backward compatibility)
+        if "role" not in record:
+            record["role"] = "admin" if username == "moosadrahul" else "read-only"
+            save_users()
         
         # Verify password
         if record.get("password"):
