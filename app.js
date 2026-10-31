@@ -930,8 +930,8 @@ function confirmDeleteHoldingAccount() {
   holdingAccounts = holdingAccounts.filter((item) => item.id !== accountId);
   if (currentHoldingAccountId === accountId) {
     currentHoldingAccountId = holdingAccounts[0].id;
-    holdings = getCurrentHoldingAccount().holdings;
   }
+  holdings = getCurrentHoldingAccount().holdings;
   saveHoldings();
   renderHoldingAccounts();
   renderPortfolioSections();
@@ -949,8 +949,11 @@ function saveHoldingAccountName() {
   }
   if (name === account.name) return;
   account.name = name;
+  holdings = account.holdings;
   saveHoldings();
   renderHoldingAccounts();
+  renderPortfolioSections();
+  refreshPortfolioOverview();
   showToast(`Account renamed to ${account.name}.`);
 }
 function setHoldingsStatus(message) { showToast(message); }

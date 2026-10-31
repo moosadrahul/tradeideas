@@ -158,3 +158,4 @@ footer{color:var(--muted)}
 #importPreviewContent table th { text-align: left; padding: 8px; font-weight: 600; }
 #importPreviewContent table td { padding: 8px; border-bottom: 1px solid var(--line); }
 #importPreviewContent table td:nth-child(n+2) { text-align: right; }
+#importPreviewPanel { position: fixed !important; inset: 0 !important; z-index: 30 !important; display: grid !important; place-items: center !important; background: rgba(0,0,0,.68) !important; padding: 20px !important; }
