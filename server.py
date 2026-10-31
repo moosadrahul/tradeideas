@@ -145,6 +145,7 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(503, {"error": "TWELVE_DATA_API_KEY is not configured"})
             return
 
+        print(f"DEBUG: Using API key: {api_key[:10]}..." if api_key else "DEBUG: No API key")
         try:
             prices = fetch_prices(symbol, outputsize, api_key, start_date, end_date, interval)
         except Exception as error:
