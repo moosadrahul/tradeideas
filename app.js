@@ -288,32 +288,55 @@ let holdings = [];
 let signedInUser = null;
 let authRegisterMode = false;
 
+// ============================================================
+// DATA INTEGRITY: Ensure holdings are NEVER lost on version update
+// ============================================================
+// Holdings are persisted EXCLUSIVELY on the server.
+// - No localStorage fallback that could overwrite server data
+// - No auto-create defaults that could hide missing holdings
+// - Only manual user actions (delete) or API errors should modify holdings
+// 
+// CRITICAL RULE: holdingAccounts ONLY changes when:
+// 1. Server returns data (initializeHoldings, authenticate)
+// 2. User manually adds an account
+// 3. User manually deletes an account
+// 4. User imports CSV
+// 5. User moves/reorders accounts
+// 6. User renames an account
+// ============================================================
+
 async function initializeHoldings() {
   try {
     const serverHoldings = await serverSync.loadHoldings();
     console.log("Server holdings loaded:", serverHoldings);
     if (serverHoldings && Array.isArray(serverHoldings) && serverHoldings.length > 0) {
-      // Server has holdings - use them
+      // Server has holdings - use them EXCLUSIVELY
       holdingAccounts = serverHoldings;
       currentHoldingAccountId = holdingAccounts[0]?.id || "default";
       holdings = holdingAccounts[0]?.holdings || [];
-      console.log("Updated holdingAccounts from server:", holdingAccounts);
-      console.log("Current holdings:", holdings);
+      console.log("✓ Loaded holdings from server:", holdingAccounts.length, "accounts");
+    } else if (serverHoldings && Array.isArray(serverHoldings) && serverHoldings.length === 0) {
+      // Server explicitly returned empty array - user has no holdings yet
+      console.log("ℹ Server returned empty - user has no holdings yet");
+      holdingAccounts = [];
+      currentHoldingAccountId = null;
+      holdings = [];
     } else {
-      // Server returned empty or error - initialize with empty default account
-      console.log("No holdings on server - initializing empty");
-      holdingAccounts = [{ id: "default", name: "Main holdings", holdings: [] }];
-      currentHoldingAccountId = "default";
+      // Server returned null/undefined - likely API error or not authenticated
+      console.error("⚠ Server did not return holdings data - may indicate connection issue");
+      // Keep empty state, don't auto-create accounts
+      holdingAccounts = [];
+      currentHoldingAccountId = null;
       holdings = [];
     }
   } catch (e) {
-    console.error("Failed to load holdings from server:", e);
-    // Initialize with empty default account on error
-    holdingAccounts = [{ id: "default", name: "Main holdings", holdings: [] }];
-    currentHoldingAccountId = "default";
+    console.error("✗ Failed to load holdings from server:", e);
+    // On error, keep empty state - DO NOT auto-create accounts
+    holdingAccounts = [];
+    currentHoldingAccountId = null;
     holdings = [];
   }
-  // Render with server holdings (or empty default)
+  // Render with server holdings (or empty if none exist)
   refreshPortfolioOverview();
   renderPortfolioSections();
 }
@@ -469,20 +492,25 @@ async function authenticate(event) {
     const serverHoldings = Array.isArray(payload.portfolio) ? payload.portfolio.reduce((total, account) => total + (account.holdings?.length || 0), 0) : 0;
     const localHoldings = holdingAccounts.reduce((total, account) => total + (account.holdings?.length || 0), 0) || 0;
     if (Array.isArray(payload.portfolio) && serverHoldings > 0) {
+      // Server has holdings - load them
       holdingAccounts = payload.portfolio;
       currentHoldingAccountId = holdingAccounts[0]?.id || "default";
       holdings = holdingAccounts[0]?.holdings || [];
+      console.log("✓ Loaded holdings from server during auth:", holdingAccounts.length, "accounts");
       renderPortfolioSections();
       refreshPortfolioOverview();
-    } else if (localHoldings > 0) {
-      if (!holdingAccounts.some((account) => account.holdings?.length)) {
-        holdingAccounts = [{ id: "default", name: "Main holdings", holdings: [] }];
-        holdings = [];
-        renderPortfolioSections();
-        refreshPortfolioOverview();
-      }
+    } else if (Array.isArray(payload.portfolio) && serverHoldings === 0) {
+      // Server returned portfolio field but empty - user authenticated but has no holdings
+      holdingAccounts = [];
+      currentHoldingAccountId = null;
+      holdings = [];
+      console.log("ℹ User authenticated, server returned empty portfolio");
+    } else if (localHoldings > 0 && !Array.isArray(payload.portfolio)) {
+      // Server didn't return portfolio but we have local holdings - push to server
+      console.log("Syncing local holdings to server...");
       await syncPortfolio();
     } else {
+      // No holdings anywhere, just sync to ensure server state is updated
       await syncPortfolio();
     }
     document.querySelector("#authButton").textContent = `Synced: ${signedInUser}`;
