@@ -802,7 +802,7 @@ function saveAccountName(input) {
   if (!account) return;
   if (!name) { input.value = account.name; return; }
   account.name = name;
-  saveHoldings();
+  saveHoldingsStructure();
   renderPortfolioSections();
 }
 function addHoldingToAccount(event, form) {
@@ -931,9 +931,11 @@ function confirmDeleteHoldingAccount() {
   holdingAccounts = holdingAccounts.filter((item) => item.id !== accountId);
   if (currentHoldingAccountId === accountId) {
     currentHoldingAccountId = holdingAccounts[0].id;
+    holdings = getCurrentHoldingAccount().holdings;
+    saveHoldings();
+  } else {
+    saveHoldingsStructure();
   }
-  holdings = getCurrentHoldingAccount().holdings;
-  saveHoldings();
   renderHoldingAccounts();
   renderPortfolioSections();
   refreshPortfolioOverview();
