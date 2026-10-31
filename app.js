@@ -66,7 +66,8 @@ function initializeApp() {
 const serverSync = {
   async loadHoldings() {
     try {
-      const response = await fetch("/api/holdings");
+      const username = window.currentUser?.username || sessionStorage.getItem("username");
+      const response = await fetch(`/api/holdings?username=${encodeURIComponent(username)}`);
       if (response.ok) {
         const data = await response.json();
         return data.holdings_accounts || [];
@@ -1240,35 +1241,6 @@ async function showImportPreview(holdings) {
   });
 }
 
-async function importHoldingsToAccount(holdings, accountId) {
-  if (isReadOnly()) {
-    showToast("Read-only users cannot import holdings");
-    return;
-  }
-  
-  for (const holding of holdings) {
-    try {
-      const addBtn = document.querySelector("#addHoldingButton");
-      
-      // Set form fields
-      const symbolInput = document.querySelector("#holdingSymbolInput");
-      const quantityInput = document.querySelector("#holdingQuantityInput");
-      const priceInput = document.querySelector("#holdingPriceInput");
-      
-      if (symbolInput) symbolInput.value = holding.symbol;
-      if (quantityInput) quantityInput.value = holding.quantity;
-      if (priceInput) priceInput.value = holding.bookPrice;
-      
-      // Trigger add
-      if (addBtn) addBtn.click();
-      await new Promise(r => setTimeout(r, 200)); // Brief delay between additions
-    } catch (e) {
-      console.error(`Failed to import ${holding.symbol}:`, e);
-    }
-  }
-  
-  showToast(`Imported ${holdings.length} holdings successfully`);
-}
 
 document.querySelector("#importCSVButton")?.addEventListener("click", () => {
   document.querySelector("#csvFileInput").click();
@@ -1279,6 +1251,12 @@ document.querySelector("#csvFileInput")?.addEventListener("change", async (event
   if (!file) return;
   
   try {
+    if (isReadOnly()) {
+      showToast("Read-only users cannot import holdings");
+      event.target.value = '';
+      return;
+    }
+    
     showToast("Processing file...");
     let holdings;
     
@@ -1292,25 +1270,41 @@ document.querySelector("#csvFileInput")?.addEventListener("change", async (event
     
     if (holdings.length === 0) {
       showToast("No valid holdings found in file");
+      event.target.value = '';
       return;
     }
     
     // Show preview
     await showImportPreview(holdings);
     
-    // Find the first account or create one
-    const accounts = state.holdings_accounts || [];
-    let accountId = accounts[0]?.id;
-    
-    if (!accountId) {
-      createHoldingAccount();
-      await new Promise(r => setTimeout(r, 300));
-      accountId = (state.holdings_accounts || [])[0]?.id;
+    // Add imported holdings to the current account
+    if (!holdingAccounts || holdingAccounts.length === 0) {
+      showToast("No account selected. Create an account first.");
+      event.target.value = '';
+      return;
     }
     
-    if (accountId) {
-      await importHoldingsToAccount(holdings, accountId);
+    const currentAccountId = holdingAccounts[0].id;
+    const currentAccount = holdingAccounts[0];
+    
+    // Add each holding to the account
+    if (!currentAccount.holdings) currentAccount.holdings = [];
+    for (const holding of holdings) {
+      const id = Math.random().toString(36).substr(2, 9);
+      currentAccount.holdings.push({
+        id,
+        symbol: holding.symbol,
+        quantity: holding.quantity,
+        bookPrice: holding.bookPrice,
+        dividendAmount: 0,
+        dividendFrequency: "yearly"
+      });
     }
+    
+    // Save to server
+    await saveHoldings();
+    showToast(`Successfully imported ${holdings.length} holdings!`);
+    
   } catch (error) {
     showToast(`Import failed: ${error.message}`);
   }

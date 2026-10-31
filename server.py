@@ -269,8 +269,13 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_json(200, {"ok": True})
 
     def handle_holdings_get(self):
-        # Use default admin user for holdings (protected by password screen)
-        username = "admin"
+        # Get holdings for the currently logged-in user
+        # Note: Username should be passed in query params or we use a default
+        # For now, we'll use query param if available, otherwise default to "moosadrahul"
+        import urllib.parse
+        parsed_query = urllib.parse.parse_qs(self.path.split('?')[1] if '?' in self.path else '')
+        username = parsed_query.get('username', ['moosadrahul'])[0] if '?' in self.path else 'moosadrahul'
+        
         if username not in USERS:
             USERS[username] = {"salt": "", "password": "", "portfolio": None, "holdings_accounts": []}
             save_users()
@@ -278,7 +283,8 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_json(200, {"holdings_accounts": holdings_accounts})
 
     def handle_holdings_save(self):
-        # Only admin can save holdings
+        # Allow any logged-in user to save their own holdings
+        # Read-only users should be blocked by frontend, but check here too for safety
         try:
             data = self.read_json()
             username = data.get("username", "")
@@ -286,18 +292,26 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(400, {"error": "Invalid request"})
             return
         
-        if username != "moosadrahul":
-            self.send_json(403, {"error": "Only admin can modify holdings"})
+        if not username:
+            self.send_json(400, {"error": "Username required"})
             return
         
+        # Allow any user to save their own holdings
+        # Check if user exists, if not create them
         if username not in USERS:
             USERS[username] = {
                 "salt": "",
                 "password": "",
-                "role": "admin",
+                "role": "read-only",
                 "portfolio": None,
                 "holdings_accounts": []
             }
+        
+        # Read-only check: prevent read-only users from modifying holdings
+        user_role = USERS[username].get("role", "read-only")
+        if user_role == "read-only":
+            self.send_json(403, {"error": "Read-only users cannot modify holdings"})
+            return
         
         try:
             holdings_accounts = data.get("holdings_accounts", [])
