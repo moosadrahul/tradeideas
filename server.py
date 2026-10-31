@@ -282,14 +282,21 @@ class Handler(SimpleHTTPRequestHandler):
         user_record = USERS[username]
         
         # Check both old (portfolio) and new (holdings_accounts) fields
-        # If portfolio exists, migrate it to holdings_accounts
-        if user_record.get("portfolio") and not user_record.get("holdings_accounts"):
-            print(f"Migrating portfolio to holdings_accounts for {username}")
-            user_record["holdings_accounts"] = user_record.get("portfolio", [])
-            user_record["portfolio"] = None
-            save_users()
-        
+        # If portfolio exists and has data, migrate it to holdings_accounts
+        portfolio = user_record.get("portfolio")
         holdings_accounts = user_record.get("holdings_accounts", [])
+        
+        # Migrate old format to new format if needed
+        if portfolio and isinstance(portfolio, list) and len(portfolio) > 0:
+            if not holdings_accounts or (isinstance(holdings_accounts, list) and len(holdings_accounts) == 0):
+                print(f"Migrating portfolio to holdings_accounts for {username}")
+                print(f"  Old portfolio: {portfolio}")
+                user_record["holdings_accounts"] = portfolio
+                user_record["portfolio"] = None
+                save_users()
+                holdings_accounts = portfolio
+                print(f"  New holdings_accounts: {holdings_accounts}")
+        
         self.send_json(200, {"holdings_accounts": holdings_accounts})
 
     def handle_holdings_save(self):
