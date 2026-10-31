@@ -281,37 +281,10 @@ async function loadAdminUsersList() {
 }
 
 const state = { symbol: "AAPL", timeframe: "1Y", prices: [], indicators: {}, source: "Demo data", exchange: "NASDAQ" };
-const storedHoldings = JSON.parse(localStorage.getItem("trend-analysis-holdings") || "[]");
-let holdingAccounts = JSON.parse(localStorage.getItem("trend-analysis-holding-accounts") || "null");
-if (!Array.isArray(holdingAccounts) || !holdingAccounts.length) {
-  holdingAccounts = [{ id: "default", name: "Main holdings", holdings: Array.isArray(storedHoldings) ? storedHoldings : [] }];
-}
-const savedDividendSettings = new Map();
-holdingAccounts.forEach((account) => account.holdings.forEach((holding) => {
-  const hasSavedSettings = holding.dividendAmount !== undefined || holding.amount !== undefined || holding.quarterlyDividend !== undefined;
-  if (!hasSavedSettings) return;
-  const settings = holding.dividendAmount !== undefined
-    ? { amount: holding.dividendAmount || 0, frequency: holding.dividendFrequency || "quarterly" }
-    : holding.amount !== undefined
-      ? { amount: holding.amount || 0, frequency: holding.frequency || "quarterly" }
-      : { amount: holding.quarterlyDividend || 0, frequency: "quarterly" };
-  const key = holding.symbol.trim().toUpperCase();
-  const previous = savedDividendSettings.get(key);
-  if (!previous || settings.amount > previous.amount) savedDividendSettings.set(key, settings);
-}));
-holdingAccounts.forEach((account) => account.holdings.forEach((holding) => {
-  const settings = savedDividendSettings.get(holding.symbol.trim().toUpperCase());
-  if (!settings) return;
-  holding.dividendAmount = settings.amount;
-  holding.dividendFrequency = settings.frequency;
-  delete holding.amount;
-  delete holding.frequency;
-  delete holding.quarterlyDividend;
-}));
-localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
-let currentHoldingAccountId = localStorage.getItem("trend-analysis-current-holding-account") || holdingAccounts[0].id;
-if (!holdingAccounts.some((account) => account.id === currentHoldingAccountId)) currentHoldingAccountId = holdingAccounts[0].id;
-let holdings = holdingAccounts.find((account) => account.id === currentHoldingAccountId).holdings;
+// Holdings are ONLY loaded from server, not localStorage
+let holdingAccounts = [];
+let currentHoldingAccountId = null;
+let holdings = [];
 let signedInUser = null;
 let authRegisterMode = false;
 
@@ -319,37 +292,28 @@ async function initializeHoldings() {
   try {
     const serverHoldings = await serverSync.loadHoldings();
     console.log("Server holdings loaded:", serverHoldings);
-    if (serverHoldings !== null) {
-      // Server returned data (could be empty array or populated array)
-      // Each item should have: id, name, holdings array
-      if (Array.isArray(serverHoldings) && serverHoldings.length > 0) {
-        // Server has holdings - use them
-        holdingAccounts = serverHoldings;
-        localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
-        currentHoldingAccountId = holdingAccounts[0]?.id || "default";
-        holdings = holdingAccounts[0]?.holdings || [];
-        console.log("Updated holdingAccounts from server:", holdingAccounts);
-        console.log("Current holdings:", holdings);
-      } else if (Array.isArray(serverHoldings) && serverHoldings.length === 0) {
-        // Server returned empty array
-        // If local has data and server is empty, auto-save to server
-        if (holdingAccounts && holdingAccounts.length > 0 && 
-            holdingAccounts.some(acc => acc.holdings && acc.holdings.length > 0)) {
-          console.log("Local holdings exist but server is empty - auto-syncing to server");
-          await serverSync.saveHoldings(holdingAccounts);
-        } else {
-          console.log("Server returned empty - using local holdings");
-        }
-        // holdingAccounts already loaded from localStorage above, keep it
-      }
+    if (serverHoldings && Array.isArray(serverHoldings) && serverHoldings.length > 0) {
+      // Server has holdings - use them
+      holdingAccounts = serverHoldings;
+      currentHoldingAccountId = holdingAccounts[0]?.id || "default";
+      holdings = holdingAccounts[0]?.holdings || [];
+      console.log("Updated holdingAccounts from server:", holdingAccounts);
+      console.log("Current holdings:", holdings);
     } else {
-      console.log("Server returned null - using local holdings");
-      // Server sync unavailable, use local
+      // Server returned empty or error - initialize with empty default account
+      console.log("No holdings on server - initializing empty");
+      holdingAccounts = [{ id: "default", name: "Main holdings", holdings: [] }];
+      currentHoldingAccountId = "default";
+      holdings = [];
     }
   } catch (e) {
     console.error("Failed to load holdings from server:", e);
+    // Initialize with empty default account on error
+    holdingAccounts = [{ id: "default", name: "Main holdings", holdings: [] }];
+    currentHoldingAccountId = "default";
+    holdings = [];
   }
-  // Render with either server or local holdings
+  // Render with server holdings (or empty default)
   refreshPortfolioOverview();
   renderPortfolioSections();
 }
@@ -422,7 +386,6 @@ function saveHoldings() {
     return;
   }
   account.holdings = holdings;
-  localStorage.setItem("trend-analysis-current-holding-account", currentHoldingAccountId);
   serverSync.saveHoldings(holdingAccounts).then((success) => {
     console.log("Holdings saved to server:", success);
     if (!success) console.warn("Failed to save holdings to server, will retry on next change");
@@ -504,19 +467,17 @@ async function authenticate(event) {
     if (!response.ok) throw new Error(payload.error || "Authentication failed");
     signedInUser = payload.username;
     const serverHoldings = Array.isArray(payload.portfolio) ? payload.portfolio.reduce((total, account) => total + (account.holdings?.length || 0), 0) : 0;
-    const localHoldings = holdingAccounts.reduce((total, account) => total + (account.holdings?.length || 0), 0) || storedHoldings.length;
+    const localHoldings = holdingAccounts.reduce((total, account) => total + (account.holdings?.length || 0), 0) || 0;
     if (Array.isArray(payload.portfolio) && serverHoldings > 0) {
       holdingAccounts = payload.portfolio;
       currentHoldingAccountId = holdingAccounts[0]?.id || "default";
       holdings = holdingAccounts[0]?.holdings || [];
-      localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
       renderPortfolioSections();
       refreshPortfolioOverview();
     } else if (localHoldings > 0) {
       if (!holdingAccounts.some((account) => account.holdings?.length)) {
-        holdingAccounts = [{ id: "default", name: "Main holdings", holdings: storedHoldings }];
-        holdings = storedHoldings;
-        localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
+        holdingAccounts = [{ id: "default", name: "Main holdings", holdings: [] }];
+        holdings = [];
         renderPortfolioSections();
         refreshPortfolioOverview();
       }
@@ -1657,12 +1618,7 @@ async function handleFileImport(event) {
     // Switch to the new account
     holdings = newAccount.holdings;
     
-    // Save to localStorage
-    localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
-    localStorage.setItem("trend-analysis-current-holding-account", currentHoldingAccountId);
-    console.log("Saved to localStorage");
-    
-    // Save to server
+    // Save to server only
     console.log("Saving to server...");
     const serverSaveSuccess = await serverSync.saveHoldings(holdingAccounts);
     console.log("Server save result:", serverSaveSuccess);
