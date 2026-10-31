@@ -252,9 +252,6 @@ async function renderPortfolioSections() {
         }
       }, 250);
     });
-        }
-      }, 250);
-    });
     symbolInput.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
         suggestionsContainer.classList.remove("show");
