@@ -1189,10 +1189,32 @@ async function parseCSVFile(file) {
     const reader = new FileReader();
     reader.onload = (event) => {
       const content = event.target.result;
-      const lines = content.split('\n').map(line => line.trim()).filter(line => line);
+      const lines = content.split('\n');
+      
       if (lines.length < 2) {
         reject(new Error("CSV file must have headers and at least one data row"));
         return;
+      }
+      
+      // Helper to parse CSV line respecting quoted fields
+      function parseCSVLine(line) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            result.push(current.trim().replace(/^"|"$/g, ''));
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        result.push(current.trim().replace(/^"|"$/g, ''));
+        return result;
       }
       
       // Try to find the actual header row
@@ -1209,7 +1231,7 @@ async function parseCSVFile(file) {
       
       // Parse header row (case-insensitive)
       const headerLine = lines[headerRowIdx];
-      const headers = headerLine.split(',').map(h => h.trim().toLowerCase());
+      const headers = parseCSVLine(headerLine).map(h => h.toLowerCase());
       
       const symbolColIdx = headers.findIndex(h => h.includes('symbol') || h.includes('ticker'));
       const exchangeColIdx = headers.findIndex(h => h.includes('exchange') || h.includes('market') || h.includes('currency'));
@@ -1217,18 +1239,17 @@ async function parseCSVFile(file) {
       const priceColIdx = headers.findIndex(h => h.includes('price') || h.includes('cost') || h.includes('average') || h.includes('book'));
       
       if (symbolColIdx === -1 || quantityColIdx === -1 || priceColIdx === -1) {
-        reject(new Error(`CSV must have Symbol/Ticker, Quantity/QTY, and Average Cost/Price columns. Found headers: ${headers.join(', ')}`));
+        reject(new Error(`CSV must have Symbol/Ticker, Quantity/QTY, and Average Cost/Price columns. Found: ${headers.join(', ')}`));
         return;
       }
       
       // Parse data rows (starting from row after headers)
       const holdings = [];
       for (let i = headerRowIdx + 1; i < lines.length; i++) {
-        const line = lines[i];
-        // Skip empty lines or lines that start with quotes (likely metadata)
-        if (!line || line.startsWith('"') && !line.includes(',')) continue;
+        const line = lines[i].trim();
+        if (!line) continue;
         
-        const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, '')).filter(v => v);
+        const values = parseCSVLine(line);
         if (values.length < 3) continue;
         
         const symbol = values[symbolColIdx]?.toUpperCase() || '';
