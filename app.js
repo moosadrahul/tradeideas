@@ -67,13 +67,20 @@ const serverSync = {
   async loadHoldings() {
     try {
       const username = window.currentUser?.username || sessionStorage.getItem("username");
-      const response = await fetch(`/api/holdings?username=${encodeURIComponent(username)}`);
+      console.log("Loading holdings for user:", username);
+      if (!username) {
+        console.warn("No username found - using default");
+      }
+      const response = await fetch(`/api/holdings?username=${encodeURIComponent(username || "moosadrahul")}`);
       if (response.ok) {
         const data = await response.json();
+        console.log("Server returned holdings:", data);
         return data.holdings_accounts || [];
+      } else {
+        console.error("Holdings API returned:", response.status);
       }
     } catch (e) {
-      console.log("Server sync unavailable, using local storage");
+      console.error("Server sync error:", e);
     }
     return null;
   },
@@ -275,12 +282,14 @@ async function initializeHoldings() {
   try {
     const serverHoldings = await serverSync.loadHoldings();
     console.log("Server holdings loaded:", serverHoldings);
-    if (serverHoldings && serverHoldings.length > 0) {
+    if (serverHoldings && Array.isArray(serverHoldings) && serverHoldings.length > 0) {
+      // Server returns holdings_accounts array directly
+      // Each item should have: id, name, holdings array
       holdingAccounts = serverHoldings;
       localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
-      currentHoldingAccountId = holdingAccounts[0].id;
-      holdings = holdingAccounts.find((account) => account.id === currentHoldingAccountId)?.holdings || [];
-      console.log("Updated holdingAccounts:", holdingAccounts);
+      currentHoldingAccountId = holdingAccounts[0]?.id || "default";
+      holdings = holdingAccounts[0]?.holdings || [];
+      console.log("Updated holdingAccounts from server:", holdingAccounts);
       console.log("Current holdings:", holdings);
     }
   } catch (e) {
@@ -1274,18 +1283,31 @@ document.querySelector("#csvFileInput")?.addEventListener("change", async (event
       return;
     }
     
+    console.log("Parsed holdings:", holdings);
+    console.log("Current holdingAccounts:", holdingAccounts);
+    
     // Show preview
     await showImportPreview(holdings);
     
     // Add imported holdings to the current account
     if (!holdingAccounts || holdingAccounts.length === 0) {
-      showToast("No account selected. Create an account first.");
-      event.target.value = '';
-      return;
+      showToast("Creating new account for imported holdings...");
+      // Create a default account if none exists
+      const newAccountId = "default-" + Date.now();
+      const newAccount = {
+        id: newAccountId,
+        name: "Imported Holdings",
+        holdings: []
+      };
+      holdingAccounts = [newAccount];
+      currentHoldingAccountId = newAccountId;
+      localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
     }
     
-    const currentAccountId = holdingAccounts[0].id;
     const currentAccount = holdingAccounts[0];
+    if (!currentAccount) {
+      throw new Error("Failed to access holding account");
+    }
     
     // Add each holding to the account
     if (!currentAccount.holdings) currentAccount.holdings = [];
@@ -1301,11 +1323,22 @@ document.querySelector("#csvFileInput")?.addEventListener("change", async (event
       });
     }
     
+    console.log("Updated account with holdings:", currentAccount);
+    
+    // Update global holdings array
+    holdings = currentAccount.holdings;
+    
     // Save to server
     await saveHoldings();
+    
+    // Refresh UI
+    refreshPortfolioOverview();
+    renderPortfolioSections();
+    
     showToast(`Successfully imported ${holdings.length} holdings!`);
     
   } catch (error) {
+    console.error("CSV import error:", error);
     showToast(`Import failed: ${error.message}`);
   }
   
