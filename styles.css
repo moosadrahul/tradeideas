@@ -59,3 +59,99 @@ footer{color:var(--muted)}
 .remove-holding{width:24px;height:24px;padding:0;border:1px solid var(--line);border-radius:50%;font-size:16px;line-height:1}.remove-holding:hover{border-color:var(--red);background:#321d1d}
 .holding-symbol-input-wrap{position:relative}.holding-symbol-suggestions{position:absolute;z-index:5;top:calc(100% + 6px);left:0;right:0;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);overflow:hidden;display:none;max-height:200px;overflow-y:auto}.holding-symbol-suggestions.show{display:block}.holding-quantity-input,.holding-bookprice-input{width:100%;height:48px;border:1px solid var(--line);border-radius:6px;background:#181818;color:var(--ink);padding:0 10px;font-family:inherit;font-size:16px}
 .holding-form{overflow:visible!important}.holding-symbol-suggestions .symbol-option{display:grid;grid-template-columns:1fr auto;gap:3px 12px;padding:10px 13px;color:var(--ink);font-size:12px;cursor:pointer;border:0;background:none;text-align:left;width:100%;border-bottom:1px solid var(--line)}.holding-symbol-suggestions .symbol-option:last-child{border-bottom:0}.holding-symbol-suggestions .symbol-option:hover,.holding-symbol-suggestions .symbol-option:focus{background:var(--mint);outline:0}.holding-symbol-suggestions .symbol-option strong{font-family:"DM Mono",monospace;color:var(--ink)}.holding-symbol-suggestions .symbol-option small{grid-column:1 / -1;color:var(--muted);font-size:10px}.holding-symbol-suggestions .symbol-option em{font-style:normal;color:var(--green-dark);font:10px "DM Mono",monospace}
+/* Mobile Optimization - Tablet and smaller (768px and below) */
+@media (max-width: 768px) {
+  .shell { padding: 0 16px; }
+  .topbar { height: auto; flex-wrap: wrap; gap: 16px; padding: 12px 0; }
+  .top-tabs { margin-left: 0; flex-wrap: wrap; }
+  .holdings-heading { flex-direction: column; gap: 16px; align-items: flex-start; }
+  .holdings-heading h1 { font-size: 24px; }
+  .holding-form { grid-template-columns: 1fr; min-width: auto; gap: 8px; }
+  .holding-form label { font-size: 9px; }
+  .holdings-table-wrap { overflow-x: auto; }
+  .holdings-table { min-width: 100%; }
+  .holdings-table th, .holdings-table td { padding: 10px 8px; font-size: 10px; }
+  .hero { flex-direction: column; gap: 24px; padding: 24px 0; }
+  .hero h1 { font-size: 32px; }
+  .control-panel { flex-direction: column; gap: 10px; }
+  .search-wrap, .select-wrap { height: 40px; }
+  .main-grid { grid-template-columns: 1fr; }
+  .lower-grid { grid-template-columns: 1fr; }
+  .card { padding: 16px; }
+  .chart-wrap { height: 180px; }
+  .ticker-row { flex-direction: column; align-items: flex-start; gap: 12px; padding: 16px 2px; }
+  .mini-stat { border-left: none; border-top: 1px solid var(--line); padding-left: 0; padding-top: 12px; margin-top: 12px; }
+  .signal-pill { margin-left: 0; margin-top: 12px; }
+  .password-form { width: 100%; max-width: 280px; }
+}
+
+/* Mobile - Small phones (480px and below) */
+@media (max-width: 480px) {
+  .shell { padding: 0 12px; }
+  .topbar { height: auto; padding: 8px 0; }
+  .top-tabs { width: 100%; }
+  .holdings-heading h1 { font-size: 20px; }
+  .holding-form { padding: 10px; }
+  .holdings-table th, .holdings-table td { padding: 8px 5px; font-size: 9px; }
+  .hero { padding: 16px 0 24px; }
+  .hero h1 { font-size: 24px; letter-spacing: -1px; }
+  .hero-copy { font-size: 13px; }
+  .control-panel { gap: 8px; padding: 10px; }
+  .search-wrap { padding: 0 10px; font-size: 18px; }
+  .search-wrap input { font-size: 13px; }
+  .search-hint { display: none; }
+  .select-wrap { padding: 0 10px; }
+  .primary-button { padding: 0 14px; height: 40px; font-size: 13px; }
+  .primary-button span { margin-left: 8px; }
+  .card { padding: 12px; }
+  .card h2 { font-size: 16px; }
+  .chart-wrap { height: 150px; }
+  .ticker-symbol { font-size: 18px; }
+  .price { font-size: 18px; }
+  .exchange { font-size: 8px; padding: 2px 4px; }
+  .mini-stat { font-size: 9px; }
+  .score-ring { width: 80px; height: 80px; }
+  .score-ring strong { font-size: 22px; }
+  .signal-breakdown { grid-template-columns: 1fr; }
+  .password-form { width: 100%; max-width: 240px; }
+  .password-form input { font-size: 13px; height: 40px; }
+}
+
+/* Landscape orientation adjustments */
+@media (max-height: 600px) and (orientation: landscape) {
+  .hero { padding: 12px 0; }
+  .hero h1 { font-size: 28px; margin-bottom: 8px; }
+  .control-panel { gap: 8px; padding: 8px; margin-bottom: 12px; }
+  .chart-wrap { height: 120px; }
+  .card { padding: 12px; }
+  .chart-meta { margin: 8px 0 4px; }
+}
+
+/* Ensure tables scroll on small screens */
+@media (max-width: 768px) {
+  .holdings-table-wrap {
+    -webkit-overflow-scrolling: touch;
+    overflow-x: auto;
+    -ms-overflow-style: -ms-autohiding-scrollbar;
+  }
+  .holdings-table { min-width: 600px; }
+}
+
+/* Improve touch targets for mobile */
+@media (hover: none) and (pointer: coarse) {
+  button, input, select {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .primary-button, .ghost-button, .text-button { min-height: 44px; }
+  .remove-holding { padding: 8px; }
+}
+
+/* Import preview panel styling */
+#importPreviewPanel { overflow-y: auto; }
+#importPreviewPanel .auth-card { max-width: 600px; max-height: 80vh; overflow-y: auto; }
+#importPreviewContent table { width: 100%; border-collapse: collapse; font-size: 12px; }
+#importPreviewContent table thead { border-bottom: 1px solid var(--line); }
+#importPreviewContent table th { text-align: left; padding: 8px; font-weight: 600; }
+#importPreviewContent table td { padding: 8px; border-bottom: 1px solid var(--line); }
+#importPreviewContent table td:nth-child(n+2) { text-align: right; }

@@ -58,7 +58,11 @@
         </div>
         <div class="holdings-heading">
           <div><h1>Holdings</h1></div>
-          <button class="primary-button" id="newHoldingAccountButton" type="button">+ New account type</button>
+          <div style="display: flex; gap: 12px;">
+            <button class="primary-button" id="newHoldingAccountButton" type="button">+ New account type</button>
+            <button class="primary-button" id="importCSVButton" type="button">📥 Import CSV/Excel</button>
+            <input type="file" id="csvFileInput" accept=".csv,.xlsx,.xls" style="display: none;" />
+          </div>
         </div>
         <section class="portfolio-overview" aria-labelledby="portfolioOverviewTitle">
           <div class="portfolio-overview-heading"><div><p class="card-kicker">All account types</p><h2 id="portfolioOverviewTitle">Portfolio value</h2></div><span id="portfolioOverviewStatus" class="holdings-performance-as-of"></span></div>
@@ -112,6 +116,18 @@
         </div>
       </form>
     </div>
-    <script src="app.js?v=72"></script>
+    <div class="auth-panel hidden" id="importPreviewPanel" role="dialog" aria-modal="true" aria-labelledby="importPreviewTitle">
+      <div class="auth-card" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
+        <button class="auth-close" id="importPreviewClose" type="button" aria-label="Close">×</button>
+        <p class="card-kicker">Import Holdings</p>
+        <h2 id="importPreviewTitle">Review Imported Holdings</h2>
+        <div id="importPreviewContent" style="margin: 16px 0;"></div>
+        <div style="display: flex; gap: 12px; margin-top: 20px;">
+          <button class="ghost-button" id="importCancelButton" type="button">Cancel</button>
+          <button class="primary-button" id="importConfirmButton" type="button">Import Holdings</button>
+        </div>
+      </div>
+    </div>
+    <script src="app.js?v=73"></script>
   </body>
 </html>

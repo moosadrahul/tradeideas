@@ -1118,3 +1118,203 @@ document.querySelector("#authForm")?.addEventListener("submit", authenticate);
 document.querySelector("#cancelDeletePortfolio")?.addEventListener("click", closeDeletePortfolioDialog);
 document.querySelector("#confirmDeletePortfolio")?.addEventListener("click", confirmDeleteHoldingAccount);
 window.addEventListener("resize", drawChart); render();
+
+// CSV/Excel Import Functions
+async function parseCSVFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target.result;
+      const lines = content.split('\n').map(line => line.trim()).filter(line => line);
+      if (lines.length < 2) {
+        reject(new Error("CSV file must have headers and at least one data row"));
+        return;
+      }
+      
+      // Parse header row (case-insensitive)
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const symbolColIdx = headers.findIndex(h => h.includes('symbol') || h.includes('ticker'));
+      const exchangeColIdx = headers.findIndex(h => h.includes('exchange') || h.includes('market'));
+      const quantityColIdx = headers.findIndex(h => h.includes('quantity') || h.includes('qty') || h.includes('shares'));
+      const priceColIdx = headers.findIndex(h => h.includes('price') || h.includes('cost') || h.includes('average'));
+      
+      if (symbolColIdx === -1 || quantityColIdx === -1 || priceColIdx === -1) {
+        reject(new Error("CSV must have Symbol/Ticker, Quantity/QTY, and Average Cost/Price columns"));
+        return;
+      }
+      
+      // Parse data rows
+      const holdings = [];
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim()).filter(v => v);
+        if (values.length < 3) continue;
+        
+        const symbol = values[symbolColIdx]?.toUpperCase() || '';
+        const exchange = values[exchangeColIdx]?.toUpperCase() || '';
+        const quantity = parseFloat(values[quantityColIdx]) || 0;
+        const bookPrice = parseFloat(values[priceColIdx]) || 0;
+        
+        if (!symbol || quantity <= 0 || bookPrice <= 0) continue;
+        
+        // Map exchange to format (CDN->TSX, US->NAS by default)
+        let mappedSymbol = symbol;
+        if (symbol.includes('.') || symbol.includes(':')) {
+          mappedSymbol = symbol.replace('.', ':');
+        } else if (exchange) {
+          const exchangeMap = {
+            'CDN': 'TSX', 'TORONTO': 'TSX', 'TSX': 'TSX',
+            'US': 'NAS', 'NASDAQ': 'NAS', 'NYSE': 'NYS', 'NYSE': 'NYS'
+          };
+          const mapped = exchangeMap[exchange] || 'NAS';
+          mappedSymbol = `${symbol}:${mapped}`;
+        } else {
+          mappedSymbol = `${symbol}:NAS`;
+        }
+        
+        holdings.push({ symbol: mappedSymbol, quantity, bookPrice });
+      }
+      
+      resolve(holdings);
+    };
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsText(file);
+  });
+}
+
+async function parseXLSXFile(file) {
+  // For XLSX, we'll need a library. For now, we'll accept it but suggest converting to CSV
+  if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+    throw new Error("Please convert your Excel file to CSV format before importing. Open it in Excel, click 'Save As', and choose CSV (Comma delimited).");
+  }
+  throw new Error("Unsupported file format");
+}
+
+async function showImportPreview(holdings) {
+  const previewPanel = document.querySelector("#importPreviewPanel");
+  const previewContent = document.querySelector("#importPreviewContent");
+  
+  // Create preview table
+  let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
+  html += '<thead><tr style="border-bottom: 1px solid var(--line);"><th style="text-align: left; padding: 8px;">Symbol</th><th style="text-align: right; padding: 8px;">Quantity</th><th style="text-align: right; padding: 8px;">Avg Cost</th><th style="text-align: right; padding: 8px;">Value</th></tr></thead>';
+  html += '<tbody>';
+  
+  let totalValue = 0;
+  holdings.forEach(h => {
+    const value = h.quantity * h.bookPrice;
+    totalValue += value;
+    html += `<tr style="border-bottom: 1px solid var(--line);"><td style="text-align: left; padding: 8px;">${h.symbol}</td><td style="text-align: right; padding: 8px;">${h.quantity}</td><td style="text-align: right; padding: 8px;">$${h.bookPrice.toFixed(2)}</td><td style="text-align: right; padding: 8px;">$${value.toFixed(2)}</td></tr>`;
+  });
+  
+  html += '</tbody></table>';
+  html += `<div style="margin-top: 16px; padding: 12px; background: var(--paper); border-radius: 6px;"><strong>Total Investment:</strong> $${totalValue.toFixed(2)}<br><strong>Holdings Count:</strong> ${holdings.length}</div>`;
+  
+  previewContent.innerHTML = html;
+  previewPanel.classList.remove("hidden");
+  
+  return new Promise((resolve, reject) => {
+    const confirmBtn = document.querySelector("#importConfirmButton");
+    const cancelBtn = document.querySelector("#importCancelButton");
+    const closeBtn = document.querySelector("#importPreviewClose");
+    
+    const cleanup = () => {
+      confirmBtn.removeEventListener("click", onConfirm);
+      cancelBtn.removeEventListener("click", onCancel);
+      closeBtn.removeEventListener("click", onCancel);
+    };
+    
+    const onConfirm = () => {
+      cleanup();
+      previewPanel.classList.add("hidden");
+      resolve();
+    };
+    
+    const onCancel = () => {
+      cleanup();
+      previewPanel.classList.add("hidden");
+      reject(new Error("Import cancelled"));
+    };
+    
+    confirmBtn.addEventListener("click", onConfirm);
+    cancelBtn.addEventListener("click", onCancel);
+    closeBtn.addEventListener("click", onCancel);
+  });
+}
+
+async function importHoldingsToAccount(holdings, accountId) {
+  if (isReadOnly()) {
+    showToast("Read-only users cannot import holdings");
+    return;
+  }
+  
+  for (const holding of holdings) {
+    try {
+      const addBtn = document.querySelector("#addHoldingButton");
+      
+      // Set form fields
+      const symbolInput = document.querySelector("#holdingSymbolInput");
+      const quantityInput = document.querySelector("#holdingQuantityInput");
+      const priceInput = document.querySelector("#holdingPriceInput");
+      
+      if (symbolInput) symbolInput.value = holding.symbol;
+      if (quantityInput) quantityInput.value = holding.quantity;
+      if (priceInput) priceInput.value = holding.bookPrice;
+      
+      // Trigger add
+      if (addBtn) addBtn.click();
+      await new Promise(r => setTimeout(r, 200)); // Brief delay between additions
+    } catch (e) {
+      console.error(`Failed to import ${holding.symbol}:`, e);
+    }
+  }
+  
+  showToast(`Imported ${holdings.length} holdings successfully`);
+}
+
+document.querySelector("#importCSVButton")?.addEventListener("click", () => {
+  document.querySelector("#csvFileInput").click();
+});
+
+document.querySelector("#csvFileInput")?.addEventListener("change", async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  try {
+    showToast("Processing file...");
+    let holdings;
+    
+    if (file.name.endsWith('.csv')) {
+      holdings = await parseCSVFile(file);
+    } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      holdings = await parseXLSXFile(file);
+    } else {
+      throw new Error("Please upload a CSV or Excel file (.csv, .xlsx, .xls)");
+    }
+    
+    if (holdings.length === 0) {
+      showToast("No valid holdings found in file");
+      return;
+    }
+    
+    // Show preview
+    await showImportPreview(holdings);
+    
+    // Find the first account or create one
+    const accounts = state.holdings_accounts || [];
+    let accountId = accounts[0]?.id;
+    
+    if (!accountId) {
+      createHoldingAccount();
+      await new Promise(r => setTimeout(r, 300));
+      accountId = (state.holdings_accounts || [])[0]?.id;
+    }
+    
+    if (accountId) {
+      await importHoldingsToAccount(holdings, accountId);
+    }
+  } catch (error) {
+    showToast(`Import failed: ${error.message}`);
+  }
+  
+  // Reset file input
+  event.target.value = '';
+});
