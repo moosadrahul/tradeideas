@@ -146,17 +146,21 @@ let authRegisterMode = false;
 async function initializeHoldings() {
   try {
     const serverHoldings = await serverSync.loadHoldings();
+    console.log("Server holdings loaded:", serverHoldings);
     if (serverHoldings && serverHoldings.length > 0) {
       holdingAccounts = serverHoldings;
       localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
       currentHoldingAccountId = holdingAccounts[0].id;
-      holdings = holdingAccounts.find((account) => account.id === currentHoldingAccountId).holdings;
-      refreshPortfolioOverview();
-      renderPortfolioSections();
+      holdings = holdingAccounts.find((account) => account.id === currentHoldingAccountId)?.holdings || [];
+      console.log("Updated holdingAccounts:", holdingAccounts);
+      console.log("Current holdings:", holdings);
     }
   } catch (e) {
-    console.log("Failed to load holdings from server, using local storage");
+    console.error("Failed to load holdings from server:", e);
   }
+  // Render with either server or local holdings
+  refreshPortfolioOverview();
+  renderPortfolioSections();
 }
 
 const stockNames = {
@@ -923,9 +927,10 @@ document.querySelectorAll(".top-tab").forEach((tab) => tab.addEventListener("cli
   }
 }));
 renderHoldingAccounts();
-refreshPortfolioOverview();
 initializeAuth();
-initializeHoldings();
+(async () => {
+  await initializeHoldings();
+})();
 document.querySelector("#newHoldingAccountButton")?.addEventListener("click", createHoldingAccount);
 document.querySelector("#authButton")?.addEventListener("click", openAuthPanel);
 document.querySelector("#authClose")?.addEventListener("click", closeAuthPanel);
