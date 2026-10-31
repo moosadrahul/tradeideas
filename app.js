@@ -218,6 +218,7 @@ async function renderPortfolioSections() {
         if (!term) {
           suggestionsContainer.classList.remove("show");
           suggestionsContainer.innerHTML = "";
+          suggestionsContainer.style.display = "none";
           return;
         }
         try {
@@ -228,21 +229,26 @@ async function renderPortfolioSections() {
           if (results.length) {
             suggestionsContainer.innerHTML = results.map((result, index) => `<button type="button" class="symbol-option" data-result-index="${index}" role="option" data-symbol="${result.symbol}" data-exchange="${result.exchange}"><strong>${result.display_symbol}</strong><em>${result.exchange}</em><small>${result.name}${result.type ? ` · ${result.type}` : ""}</small></button>`).join("");
             suggestionsContainer.classList.add("show");
+            suggestionsContainer.style.display = "block";
             suggestionsContainer.querySelectorAll("[data-result-index]").forEach((button, index) => {
               button.addEventListener("click", (e) => {
                 e.preventDefault();
                 symbolInput.value = results[index].symbol;
                 suggestionsContainer.classList.remove("show");
                 suggestionsContainer.innerHTML = "";
+                suggestionsContainer.style.display = "none";
               });
             });
           } else {
             suggestionsContainer.innerHTML = '<div class="symbol-option"><small>No matching symbols found.</small></div>';
             suggestionsContainer.classList.add("show");
+            suggestionsContainer.style.display = "block";
           }
         } catch (error) {
-          suggestionsContainer.innerHTML = `<div class="symbol-option"><small>${error.message}</small></div>`;
+          console.error("Symbol search error:", error);
+          suggestionsContainer.innerHTML = `<div class="symbol-option"><small>Error: ${error.message}</small></div>`;
           suggestionsContainer.classList.add("show");
+          suggestionsContainer.style.display = "block";
         }
       }, 250);
     });
@@ -253,6 +259,7 @@ async function renderPortfolioSections() {
       if (event.key === "Escape") {
         suggestionsContainer.classList.remove("show");
         suggestionsContainer.innerHTML = "";
+        suggestionsContainer.style.display = "none";
       }
     });
     symbolInputWrap.addEventListener("click", (event) => {
@@ -263,7 +270,10 @@ async function renderPortfolioSections() {
   });
   document.addEventListener("click", (event) => {
     if (!event.target.closest(".holding-symbol-input-wrap")) {
-      document.querySelectorAll(".holding-symbol-suggestions").forEach((cont) => cont.classList.remove("show"));
+      document.querySelectorAll(".holding-symbol-suggestions").forEach((cont) => {
+        cont.classList.remove("show");
+        cont.style.display = "none";
+      });
     }
   }, { capture: false });
   await Promise.all(holdingAccounts.map((account) => refreshPortfolioSection(account)));
