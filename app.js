@@ -1352,7 +1352,7 @@ async function parseXLSXFile(file) {
               'CDN': 'TSX', 'TORONTO': 'TSX', 'TSX': 'TSX',
               'US': 'NAS', 'NASDAQ': 'NAS', 'NYSE': 'NYS'
             };
-            const mapped = exchangeMap[exchange] || 'NAS';
+            const mapped = exchangeMap[exchange] || (exchange.startsWith('CDN') ? 'TSX' : 'NAS');
             mappedSymbol = `${symbol}:${mapped}`;
           } else {
             mappedSymbol = `${symbol}:NAS`;
