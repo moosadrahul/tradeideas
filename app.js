@@ -888,11 +888,11 @@ document.querySelectorAll(".top-tab").forEach((tab) => tab.addEventListener("cli
 renderHoldingAccounts();
 refreshPortfolioOverview();
 initializeAuth();
-document.querySelector("#newHoldingAccountButton").addEventListener("click", createHoldingAccount);
-document.querySelector("#authButton").addEventListener("click", openAuthPanel);
-document.querySelector("#authClose").addEventListener("click", closeAuthPanel);
-document.querySelector("#authMode").addEventListener("click", () => setAuthMode(!authRegisterMode));
-document.querySelector("#authForm").addEventListener("submit", authenticate);
-document.querySelector("#cancelDeletePortfolio").addEventListener("click", closeDeletePortfolioDialog);
-document.querySelector("#confirmDeletePortfolio").addEventListener("click", confirmDeleteHoldingAccount);
+document.querySelector("#newHoldingAccountButton")?.addEventListener("click", createHoldingAccount);
+document.querySelector("#authButton")?.addEventListener("click", openAuthPanel);
+document.querySelector("#authClose")?.addEventListener("click", closeAuthPanel);
+document.querySelector("#authMode")?.addEventListener("click", () => setAuthMode(!authRegisterMode));
+document.querySelector("#authForm")?.addEventListener("submit", authenticate);
+document.querySelector("#cancelDeletePortfolio")?.addEventListener("click", closeDeletePortfolioDialog);
+document.querySelector("#confirmDeletePortfolio")?.addEventListener("click", confirmDeleteHoldingAccount);
 window.addEventListener("resize", drawChart); render();
