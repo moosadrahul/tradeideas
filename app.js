@@ -1246,11 +1246,79 @@ async function parseCSVFile(file) {
 }
 
 async function parseXLSXFile(file) {
-  // For XLSX, we'll need a library. For now, we'll accept it but suggest converting to CSV
-  if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-    throw new Error("Please convert your Excel file to CSV format before importing. Open it in Excel, click 'Save As', and choose CSV (Comma delimited).");
-  }
-  throw new Error("Unsupported file format");
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        // Use SheetJS to parse Excel file
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        // Get first sheet
+        const sheetName = workbook.SheetNames[0];
+        if (!sheetName) {
+          reject(new Error("Excel file is empty"));
+          return;
+        }
+        
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        if (!jsonData || jsonData.length === 0) {
+          reject(new Error("Excel sheet has no data rows"));
+          return;
+        }
+        
+        // Find column indices (case-insensitive)
+        const firstRow = jsonData[0];
+        const keys = Object.keys(firstRow);
+        
+        const symbolKey = keys.find(k => k.toLowerCase().includes('symbol') || k.toLowerCase().includes('ticker'));
+        const exchangeKey = keys.find(k => k.toLowerCase().includes('exchange') || k.toLowerCase().includes('market'));
+        const quantityKey = keys.find(k => k.toLowerCase().includes('quantity') || k.toLowerCase().includes('qty') || k.toLowerCase().includes('shares'));
+        const priceKey = keys.find(k => k.toLowerCase().includes('price') || k.toLowerCase().includes('cost') || k.toLowerCase().includes('average') || k.toLowerCase().includes('book'));
+        
+        if (!symbolKey || !quantityKey || !priceKey) {
+          reject(new Error("Excel must have Symbol/Ticker, Quantity/QTY/Shares, and Average Cost/Price/Book Price columns"));
+          return;
+        }
+        
+        // Parse data rows
+        const holdings = [];
+        for (const row of jsonData) {
+          const symbol = String(row[symbolKey] || '').toUpperCase().trim();
+          const exchange = String(row[exchangeKey] || '').toUpperCase().trim();
+          const quantity = parseFloat(row[quantityKey]) || 0;
+          const bookPrice = parseFloat(row[priceKey]) || 0;
+          
+          if (!symbol || quantity <= 0 || bookPrice <= 0) continue;
+          
+          // Map exchange to format (CDN->TSX, US->NAS by default)
+          let mappedSymbol = symbol;
+          if (symbol.includes('.') || symbol.includes(':')) {
+            mappedSymbol = symbol.replace('.', ':');
+          } else if (exchange) {
+            const exchangeMap = {
+              'CDN': 'TSX', 'TORONTO': 'TSX', 'TSX': 'TSX',
+              'US': 'NAS', 'NASDAQ': 'NAS', 'NYSE': 'NYS'
+            };
+            const mapped = exchangeMap[exchange] || 'NAS';
+            mappedSymbol = `${symbol}:${mapped}`;
+          } else {
+            mappedSymbol = `${symbol}:NAS`;
+          }
+          
+          holdings.push({ symbol: mappedSymbol, quantity, bookPrice });
+        }
+        
+        resolve(holdings);
+      } catch (error) {
+        reject(new Error(`Failed to parse Excel file: ${error.message}`));
+      }
+    };
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsArrayBuffer(file);
+  });
 }
 
 async function showImportPreview(holdings) {
@@ -1343,31 +1411,22 @@ document.querySelector("#csvFileInput")?.addEventListener("change", async (event
     // Show preview
     await showImportPreview(holdings);
     
-    // Add imported holdings to the current account
-    if (!holdingAccounts || holdingAccounts.length === 0) {
-      showToast("Creating new account for imported holdings...");
-      // Create a default account if none exists
-      const newAccountId = "default-" + Date.now();
-      const newAccount = {
-        id: newAccountId,
-        name: "Imported Holdings",
-        holdings: []
-      };
-      holdingAccounts = [newAccount];
-      currentHoldingAccountId = newAccountId;
-      localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
-    }
+    // Generate account name from filename (remove extension)
+    let accountName = file.name.replace(/\.[^/.]+$/, "").trim();
+    if (!accountName) accountName = "Imported Holdings";
     
-    const currentAccount = holdingAccounts[0];
-    if (!currentAccount) {
-      throw new Error("Failed to access holding account");
-    }
+    // Create a new account for these holdings (don't add to existing)
+    const newAccountId = "imported-" + Date.now();
+    const newAccount = {
+      id: newAccountId,
+      name: accountName,
+      holdings: []
+    };
     
-    // Add each holding to the account
-    if (!currentAccount.holdings) currentAccount.holdings = [];
+    // Add each holding to the new account
     for (const holding of holdings) {
       const id = Math.random().toString(36).substr(2, 9);
-      currentAccount.holdings.push({
+      newAccount.holdings.push({
         id,
         symbol: holding.symbol,
         quantity: holding.quantity,
@@ -1377,19 +1436,27 @@ document.querySelector("#csvFileInput")?.addEventListener("change", async (event
       });
     }
     
-    console.log("Updated account with holdings:", currentAccount);
+    // Add new account to holdings accounts
+    if (!holdingAccounts) holdingAccounts = [];
+    holdingAccounts.push(newAccount);
+    currentHoldingAccountId = newAccountId;
     
-    // Update global holdings array
-    holdings = currentAccount.holdings;
+    console.log("Created new account:", newAccount);
+    console.log("All accounts now:", holdingAccounts);
     
-    // Save to server
-    await saveHoldings();
+    // Switch to the new account
+    holdings = newAccount.holdings;
+    
+    // Save to server and localStorage
+    localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
+    localStorage.setItem("trend-analysis-current-holding-account", currentHoldingAccountId);
+    await serverSync.saveHoldings(holdingAccounts);
     
     // Refresh UI
     refreshPortfolioOverview();
     renderPortfolioSections();
     
-    showToast(`Successfully imported ${holdings.length} holdings!`);
+    showToast(`Successfully imported ${newAccount.holdings.length} holdings to account "${accountName}"!`);
     
   } catch (error) {
     console.error("CSV import error:", error);
