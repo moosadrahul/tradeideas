@@ -147,7 +147,8 @@ class Handler(SimpleHTTPRequestHandler):
 
         try:
             prices = fetch_prices(symbol, outputsize, api_key, start_date, end_date, interval)
-        except (OSError, ValueError) as error:
+        except Exception as error:
+            print(f"ERROR fetching {symbol}: {type(error).__name__}: {error}")
             self.send_json(502, {"error": f"Unable to reach Twelve Data: {error}"})
             return
         if start_date:
@@ -319,7 +320,8 @@ class Handler(SimpleHTTPRequestHandler):
                 symbol = futures[future]
                 try:
                     rows.append(future.result())
-                except (OSError, RuntimeError, ValueError) as error:
+                except Exception as error:
+                    print(f"ERROR scanning {symbol}: {type(error).__name__}: {error}")
                     errors.append({"symbol": symbol, "error": str(error)})
         if not rows:
             self.send_json(502, {"error": "No symbols could be scanned", "details": errors[:10]})
