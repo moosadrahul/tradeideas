@@ -464,7 +464,45 @@ function unavailableHoldingRow(holding, accountId, error) {
 }
 async function renderPortfolioSections() {
   const container = document.querySelector("#portfolioSections");
-  container.innerHTML = holdingAccounts.map((account) => `<section class="portfolio-section" data-account-section="${account.id}"><div class="portfolio-section-heading"><div><p class="card-kicker">Account type</p><input class="portfolio-section-name" data-account-name="${account.id}" value="${account.name}" maxlength="40" aria-label="Portfolio name" /></div><button class="holding-portfolio-delete" data-delete-account="${account.id}" aria-label="Delete ${account.name}" title="Delete ${account.name}">×</button></div><form class="holding-form portfolio-holding-form" data-account-form="${account.id}"><div class="holding-symbol-input-wrap"><label>Symbol<input name="symbol" class="holding-symbol-input" placeholder="Enter symbol" maxlength="20" required /></label><div class="holding-symbol-suggestions" data-suggestions="${account.id}"></div></div><label>Quantity<input name="quantity" type="number" min="0.0001" step="any" placeholder="Qty" required /></label><label>Book price<input name="bookPrice" type="number" min="0.0001" step="any" placeholder="Price" required /></label><button class="primary-button" type="submit">Add holding <span>+</span></button></form><section class="holdings-performance"><div class="holdings-performance-heading"><div><p class="card-kicker">Position performance</p><h2>Gain/loss by holding</h2></div><span class="holdings-performance-as-of" data-performance-as-of="${account.id}"></span></div><div class="holdings-performance-list" data-performance="${account.id}"><p class="scanner-empty">Loading live prices…</p></div></section><div class="card holdings-card"><div class="holdings-table-wrap"><table class="holdings-table"><thead><tr><th>Symbol</th><th>Qty</th><th>Book price</th><th>Book value</th><th>Current price</th><th>Gain/loss</th><th>Gain/loss %</th><th>Proj Inc.</th><th>Expected 1 month</th><th>Expected 1 year</th><th>Expected 5 years</th><th></th></tr></thead><tbody data-rows="${account.id}"><tr><td colspan="12" class="scanner-empty">Loading live prices…</td></tr></tbody>${portfolioTotalsMarkup(account, [])}</table></div></div></section>`).join("");
+  container.innerHTML = holdingAccounts.map((account, index) => `<section class="portfolio-section" data-account-section="${account.id}" draggable="${!isReadOnly()}" data-account-index="${index}" style="cursor: ${!isReadOnly() ? 'move' : 'default'};"><div class="portfolio-section-heading"><div style="display: flex; align-items: center; gap: 0.5rem;"><span class="drag-handle" style="cursor: grab; font-size: 1.2rem; user-select: none; ${isReadOnly() ? 'opacity: 0.3;' : ''}">≡</span><div><p class="card-kicker">Account type</p><input class="portfolio-section-name" data-account-name="${account.id}" value="${account.name}" maxlength="40" aria-label="Portfolio name" ${isReadOnly() ? 'disabled' : ''} /></div></div><button class="holding-portfolio-delete" data-delete-account="${account.id}" aria-label="Delete ${account.name}" title="Delete ${account.name}" ${isReadOnly() ? 'disabled' : ''}>×</button></div><form class="holding-form portfolio-holding-form" data-account-form="${account.id}"><div class="holding-symbol-input-wrap"><label>Symbol<input name="symbol" class="holding-symbol-input" placeholder="Enter symbol" maxlength="20" ${isReadOnly() ? 'disabled' : ''} required /></label><div class="holding-symbol-suggestions" data-suggestions="${account.id}"></div></div><label>Quantity<input name="quantity" type="number" min="0.0001" step="any" placeholder="Qty" ${isReadOnly() ? 'disabled' : ''} required /></label><label>Book price<input name="bookPrice" type="number" min="0.0001" step="any" placeholder="Price" ${isReadOnly() ? 'disabled' : ''} required /></label><button class="primary-button" type="submit" ${isReadOnly() ? 'disabled' : ''}>Add holding <span>+</span></button></form><section class="holdings-performance"><div class="holdings-performance-heading"><div><p class="card-kicker">Position performance</p><h2>Gain/loss by holding</h2></div><span class="holdings-performance-as-of" data-performance-as-of="${account.id}"></span></div><div class="holdings-performance-list" data-performance="${account.id}"><p class="scanner-empty">Loading live prices…</p></div></section><div class="card holdings-card"><div class="holdings-table-wrap"><table class="holdings-table"><thead><tr><th>Symbol</th><th>Qty</th><th>Book price</th><th>Book value</th><th>Current price</th><th>Gain/loss</th><th>Gain/loss %</th><th>Proj Inc.</th><th>Expected 1 month</th><th>Expected 1 year</th><th>Expected 5 years</th><th></th></tr></thead><tbody data-rows="${account.id}"><tr><td colspan="12" class="scanner-empty">Loading live prices…</td></tr></tbody>${portfolioTotalsMarkup(account, [])}</table></div></div></section>`).join("");
+  
+  // Add drag and drop handlers
+  if (!isReadOnly()) {
+    container.querySelectorAll("[data-account-section]").forEach((section) => {
+      section.addEventListener("dragstart", (e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/html", e.currentTarget.innerHTML);
+        e.currentTarget.style.opacity = "0.5";
+        e.currentTarget.dataset.draggedIndex = section.dataset.accountIndex;
+      });
+      section.addEventListener("dragend", (e) => {
+        e.currentTarget.style.opacity = "1";
+        delete e.currentTarget.dataset.draggedIndex;
+      });
+      section.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        e.currentTarget.style.borderTop = "3px solid var(--green)";
+      });
+      section.addEventListener("dragleave", (e) => {
+        e.currentTarget.style.borderTop = "";
+      });
+      section.addEventListener("drop", (e) => {
+        e.preventDefault();
+        e.currentTarget.style.borderTop = "";
+        const draggedIndex = parseInt(container.querySelector("[data-dragged-index]")?.dataset.draggedIndex || -1);
+        const targetIndex = parseInt(e.currentTarget.dataset.accountIndex);
+        if (draggedIndex !== -1 && draggedIndex !== targetIndex) {
+          const draggedAccount = holdingAccounts[draggedIndex];
+          holdingAccounts.splice(draggedIndex, 1);
+          holdingAccounts.splice(targetIndex > draggedIndex ? targetIndex - 1 : targetIndex, 0, draggedAccount);
+          saveHoldings();
+          renderPortfolioSections();
+        }
+      });
+    });
+  }
+  
   container.querySelectorAll("[data-delete-account]").forEach((button) => button.addEventListener("click", () => deleteHoldingAccount(button.dataset.deleteAccount)));
   container.querySelectorAll("[data-account-name]").forEach((input) => input.addEventListener("blur", () => saveAccountName(input)));
   container.querySelectorAll("[data-account-form]").forEach((form) => {
