@@ -515,7 +515,7 @@ async function refreshPortfolioOverview() {
     return { account, value: values.reduce((sum, value) => sum + (value || 0), 0), failed: values.filter((value) => value === null).length };
   }));
   const totalValue = accountResults.reduce((sum, result) => sum + result.value, 0);
-  const totalBookValue = holdingAccounts.reduce((sum, account) => sum + account.holdings.reduce((accountSum, holding) => accountSum + (holding.quantity * holding.price), 0), 0);
+  const totalBookValue = holdingAccounts.reduce((sum, account) => sum + account.holdings.reduce((accountSum, holding) => accountSum + (holding.quantity * holding.bookPrice), 0), 0);
   const totalGainLoss = totalValue - totalBookValue;
   const totalProjectedIncome = holdingAccounts.reduce((sum, account) => sum + account.holdings.reduce((accountSum, holding) => {
     const dividend = getDividendSettings(holding);
