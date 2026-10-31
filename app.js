@@ -422,7 +422,6 @@ function saveHoldings() {
     return;
   }
   account.holdings = holdings;
-  localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
   localStorage.setItem("trend-analysis-current-holding-account", currentHoldingAccountId);
   serverSync.saveHoldings(holdingAccounts).then((success) => {
     console.log("Holdings saved to server:", success);
@@ -431,8 +430,7 @@ function saveHoldings() {
   if (signedInUser) syncPortfolio();
 }
 function saveHoldingsStructure() {
-  // Save account order and structure without modifying the holdings array
-  localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
+  // Save account order and structure to server only
   serverSync.saveHoldings(holdingAccounts).then((success) => {
     console.log("Holdings structure saved to server:", success);
     if (!success) console.warn("Failed to save holdings structure to server, will retry on next change");
