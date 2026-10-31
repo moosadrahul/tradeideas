@@ -92,7 +92,8 @@ footer{color:var(--muted)}
   .top-tabs { width: 100%; }
   .holdings-heading h1 { font-size: 20px; }
   .holding-form { padding: 10px; }
-  .holdings-table th, .holdings-table td { padding: 8px 5px; font-size: 9px; }
+  .holdings-table th, .holdings-table td { padding: 10px 6px; font-size: 10px; }
+  .holdings-table input { min-width: 50px; padding: 4px 3px; font-size: 10px; }
   .hero { padding: 16px 0 24px; }
   .hero h1 { font-size: 24px; letter-spacing: -1px; }
   .hero-copy { font-size: 13px; }
@@ -145,6 +146,7 @@ footer{color:var(--muted)}
   }
   .primary-button, .ghost-button, .text-button { min-height: 44px; }
   .remove-holding { padding: 8px; }
+  .holdings-table input { font-size: 12px; min-width: 60px; height: 36px; }
 }
 
 /* Import preview panel styling */
