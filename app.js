@@ -1389,35 +1389,7 @@ async function showImportPreview(holdings) {
   });
 }
 
-// Initialize import button handlers
-function initializeImportHandlers() {
-  console.log("Initializing import handlers...");
-  
-  const importBtn = document.querySelector("#importCSVButton");
-  const fileInput = document.querySelector("#csvFileInput");
-  
-  console.log("Import button found:", !!importBtn);
-  console.log("File input found:", !!fileInput);
-  
-  if (!importBtn || !fileInput) {
-    console.error("ERROR: Import elements not found in DOM");
-    return;
-  }
-  
-  // Button click handler
-  importBtn.addEventListener("click", (e) => {
-    console.log("Import button clicked!");
-    e.preventDefault();
-    fileInput.click();
-  });
-  
-  console.log("Import button handler attached");
-  
-  // File input change handler
-  fileInput.addEventListener("change", handleFileImport);
-  console.log("File input handler attached");
-}
-
+// File input change handler
 async function handleFileImport(event) {
   const file = event.target.files[0];
   console.log("File selected:", file?.name);
@@ -1520,9 +1492,52 @@ async function handleFileImport(event) {
   event.target.value = '';
 }
 
-// Call initialization when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeImportHandlers);
-} else {
-  initializeImportHandlers();
-}
+// Simple direct attachment of import handlers
+(function() {
+  function attachImportHandlers() {
+    const importBtn = document.querySelector("#importCSVButton");
+    const fileInput = document.querySelector("#csvFileInput");
+    
+    if (!importBtn) {
+      console.error("Import button not found");
+      // Try again after a delay
+      setTimeout(attachImportHandlers, 500);
+      return;
+    }
+    
+    if (!fileInput) {
+      console.error("File input not found");
+      return;
+    }
+    
+    console.log("Attaching import handlers...");
+    
+    // Remove any existing listeners by cloning
+    const newBtn = importBtn.cloneNode(true);
+    importBtn.parentNode.replaceChild(newBtn, importBtn);
+    
+    const newFileInput = fileInput.cloneNode(true);
+    fileInput.parentNode.replaceChild(newFileInput, fileInput);
+    
+    // Attach fresh listeners
+    newBtn.onclick = () => {
+      console.log("Import button clicked!");
+      newFileInput.click();
+      return false;
+    };
+    
+    newFileInput.onchange = handleFileImport;
+    
+    console.log("Import handlers attached successfully");
+  }
+  
+  // Try to attach immediately
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    attachImportHandlers();
+  } else {
+    document.addEventListener('DOMContentLoaded', attachImportHandlers);
+  }
+  
+  // Also try after a short delay to be sure
+  setTimeout(attachImportHandlers, 1000);
+})();
