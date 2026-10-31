@@ -142,6 +142,23 @@ if (!holdingAccounts.some((account) => account.id === currentHoldingAccountId)) 
 let holdings = holdingAccounts.find((account) => account.id === currentHoldingAccountId).holdings;
 let signedInUser = null;
 let authRegisterMode = false;
+
+async function initializeHoldings() {
+  try {
+    const serverHoldings = await serverSync.loadHoldings();
+    if (serverHoldings && serverHoldings.length > 0) {
+      holdingAccounts = serverHoldings;
+      localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
+      currentHoldingAccountId = holdingAccounts[0].id;
+      holdings = holdingAccounts.find((account) => account.id === currentHoldingAccountId).holdings;
+      refreshPortfolioOverview();
+      renderPortfolioSections();
+    }
+  } catch (e) {
+    console.log("Failed to load holdings from server, using local storage");
+  }
+}
+
 const stockNames = {
   AAPL: "Apple Inc.",
   MSFT: "Microsoft Corporation",
@@ -908,6 +925,7 @@ document.querySelectorAll(".top-tab").forEach((tab) => tab.addEventListener("cli
 renderHoldingAccounts();
 refreshPortfolioOverview();
 initializeAuth();
+initializeHoldings();
 document.querySelector("#newHoldingAccountButton")?.addEventListener("click", createHoldingAccount);
 document.querySelector("#authButton")?.addEventListener("click", openAuthPanel);
 document.querySelector("#authClose")?.addEventListener("click", closeAuthPanel);
