@@ -424,6 +424,15 @@ function saveHoldings() {
   });
   if (signedInUser) syncPortfolio();
 }
+function saveHoldingsStructure() {
+  // Save account order and structure without modifying the holdings array
+  localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
+  serverSync.saveHoldings(holdingAccounts).then((success) => {
+    console.log("Holdings structure saved to server:", success);
+    if (!success) console.warn("Failed to save holdings structure to server, will retry on next change");
+  });
+  if (signedInUser) syncPortfolio();
+}
 async function syncPortfolio() {
   try {
     await fetch("/api/portfolio", {
@@ -547,7 +556,7 @@ async function renderPortfolioSections() {
         const draggedAccount = holdingAccounts[index];
         holdingAccounts.splice(index, 1);
         holdingAccounts.splice(index - 1, 0, draggedAccount);
-        saveHoldings();
+        saveHoldingsStructure();
         renderPortfolioSections();
       }
     });
@@ -560,7 +569,7 @@ async function renderPortfolioSections() {
         const draggedAccount = holdingAccounts[index];
         holdingAccounts.splice(index, 1);
         holdingAccounts.splice(index + 1, 0, draggedAccount);
-        saveHoldings();
+        saveHoldingsStructure();
         renderPortfolioSections();
       }
     });
@@ -602,7 +611,7 @@ async function renderPortfolioSections() {
           const draggedAccount = holdingAccounts[draggedIndex];
           holdingAccounts.splice(draggedIndex, 1);
           holdingAccounts.splice(targetIndex > draggedIndex ? targetIndex - 1 : targetIndex, 0, draggedAccount);
-          saveHoldings();
+          saveHoldingsStructure();
           renderPortfolioSections();
         }
       });
