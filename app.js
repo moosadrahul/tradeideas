@@ -1234,9 +1234,16 @@ async function parseCSVFile(file) {
       const headers = parseCSVLine(headerLine).map(h => h.toLowerCase());
       
       const symbolColIdx = headers.findIndex(h => h.includes('symbol') || h.includes('ticker'));
-      const exchangeColIdx = headers.findIndex(h => h.includes('exchange') || h.includes('market') || h.includes('currency'));
+      const exchangeColIdx = headers.findIndex(h => h.includes('market') || h.includes('exchange'));
+      const currencyColIdx = headers.findIndex(h => h.includes('currency') && h.includes('held'));
       const quantityColIdx = headers.findIndex(h => h.includes('quantity') || h.includes('qty') || h.includes('shares'));
-      const priceColIdx = headers.findIndex(h => h.includes('price') || h.includes('cost') || h.includes('average') || h.includes('book'));
+      const priceColIdx = headers.findIndex(h => {
+        const lower = h.toLowerCase();
+        // More specific: look for "Average" for average cost, or pure "Cost"
+        if (lower.includes('average') && lower.includes('cost')) return true;
+        if (lower === 'cost' || lower === 'average cost') return true;
+        return false;
+      });
       
       if (symbolColIdx === -1 || quantityColIdx === -1 || priceColIdx === -1) {
         reject(new Error(`CSV must have Symbol/Ticker, Quantity/QTY, and Average Cost/Price columns. Found: ${headers.join(', ')}`));
@@ -1253,7 +1260,11 @@ async function parseCSVFile(file) {
         if (values.length < 3) continue;
         
         const symbol = values[symbolColIdx]?.toUpperCase() || '';
-        const exchange = values[exchangeColIdx]?.toUpperCase() || '';
+        let exchange = values[exchangeColIdx]?.toUpperCase() || '';
+        // Fallback to currency column if market not found
+        if (!exchange && currencyColIdx !== -1) {
+          exchange = values[currencyColIdx]?.toUpperCase() || '';
+        }
         const quantity = parseFloat(values[quantityColIdx]) || 0;
         const bookPrice = parseFloat(values[priceColIdx]) || 0;
         
@@ -1268,7 +1279,7 @@ async function parseCSVFile(file) {
             'CDN': 'TSX', 'TORONTO': 'TSX', 'TSX': 'TSX',
             'US': 'NAS', 'NASDAQ': 'NAS', 'NYSE': 'NYS'
           };
-          const mapped = exchangeMap[exchange] || 'NAS';
+          const mapped = exchangeMap[exchange] || (exchange.startsWith('CDN') ? 'TSX' : 'NAS');
           mappedSymbol = `${symbol}:${mapped}`;
         } else {
           mappedSymbol = `${symbol}:NAS`;
