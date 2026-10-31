@@ -538,15 +538,21 @@ async function renderPortfolioSections() {
         e.dataTransfer.setData("text/html", e.currentTarget.innerHTML);
         e.currentTarget.style.opacity = "0.5";
         e.currentTarget.dataset.draggedIndex = section.dataset.accountIndex;
+        // Start auto-scroll during drag
+        startDragAutoScroll();
       });
       section.addEventListener("dragend", (e) => {
         e.currentTarget.style.opacity = "1";
         delete e.currentTarget.dataset.draggedIndex;
+        // Stop auto-scroll
+        stopDragAutoScroll();
       });
       section.addEventListener("dragover", (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
         e.currentTarget.style.borderTop = "3px solid var(--green)";
+        // Auto-scroll toward the dragged element
+        autoScrollToDrag(e);
       });
       section.addEventListener("dragleave", (e) => {
         e.currentTarget.style.borderTop = "";
@@ -565,9 +571,95 @@ async function renderPortfolioSections() {
         }
       });
     });
+
+    // Add move buttons for each account
+    container.querySelectorAll("[data-account-section]").forEach((section, index) => {
+      const heading = section.querySelector(".portfolio-section-heading");
+      const deleteBtn = section.querySelector(".holding-portfolio-delete");
+      
+      // Create move buttons container
+      const moveButtons = document.createElement("div");
+      moveButtons.style.display = "flex";
+      moveButtons.style.gap = "0.5rem";
+      moveButtons.style.marginLeft = "auto";
+      moveButtons.style.alignItems = "center";
+      
+      // Move up button
+      if (index > 0) {
+        const upBtn = document.createElement("button");
+        upBtn.type = "button";
+        upBtn.className = "account-move-btn";
+        upBtn.title = "Move up";
+        upBtn.textContent = "▲";
+        upBtn.style.cssText = "padding: 0.4rem 0.6rem; font-size: 0.9rem; cursor: pointer; border: 1px solid var(--gray); background: none; border-radius: 0.25rem;";
+        upBtn.disabled = isReadOnly();
+        upBtn.addEventListener("click", () => {
+          const draggedAccount = holdingAccounts[index];
+          holdingAccounts.splice(index, 1);
+          holdingAccounts.splice(index - 1, 0, draggedAccount);
+          saveHoldings();
+          renderPortfolioSections();
+        });
+        moveButtons.appendChild(upBtn);
+      }
+      
+      // Move down button
+      if (index < holdingAccounts.length - 1) {
+        const downBtn = document.createElement("button");
+        downBtn.type = "button";
+        downBtn.className = "account-move-btn";
+        downBtn.title = "Move down";
+        downBtn.textContent = "▼";
+        downBtn.style.cssText = "padding: 0.4rem 0.6rem; font-size: 0.9rem; cursor: pointer; border: 1px solid var(--gray); background: none; border-radius: 0.25rem;";
+        downBtn.disabled = isReadOnly();
+        downBtn.addEventListener("click", () => {
+          const draggedAccount = holdingAccounts[index];
+          holdingAccounts.splice(index, 1);
+          holdingAccounts.splice(index + 1, 0, draggedAccount);
+          saveHoldings();
+          renderPortfolioSections();
+        });
+        moveButtons.appendChild(downBtn);
+      }
+      
+      // Insert move buttons before delete button
+      if (moveButtons.children.length > 0) {
+        deleteBtn.parentElement.insertBefore(moveButtons, deleteBtn);
+      }
+    });
   }
   
-  container.querySelectorAll("[data-delete-account]").forEach((button) => button.addEventListener("click", () => deleteHoldingAccount(button.dataset.deleteAccount)));
+  // Auto-scroll helper functions
+  let autoScrollInterval;
+  function startDragAutoScroll() {
+    autoScrollInterval = setInterval(() => {
+      const container = document.querySelector("[data-portfolio-container]");
+      if (!container) return;
+      
+      const rect = container.getBoundingClientRect();
+      const scrollSpeed = 5;
+      
+      // Scroll up if mouse is near top
+      if (window.dragMouseY && window.dragMouseY < rect.top + 50) {
+        container.scrollBy(0, -scrollSpeed);
+      }
+      // Scroll down if mouse is near bottom
+      else if (window.dragMouseY && window.dragMouseY > rect.bottom - 50) {
+        container.scrollBy(0, scrollSpeed);
+      }
+    }, 50);
+  }
+
+  function stopDragAutoScroll() {
+    if (autoScrollInterval) clearInterval(autoScrollInterval);
+  }
+
+  function autoScrollToDrag(e) {
+    window.dragMouseY = e.clientY;
+  }
+
+  // Clean up on drag end
+  document.addEventListener("dragend", stopDragAutoScroll);
   container.querySelectorAll("[data-account-name]").forEach((input) => input.addEventListener("blur", () => saveAccountName(input)));
   container.querySelectorAll("[data-account-form]").forEach((form) => {
     form.addEventListener("submit", (event) => addHoldingToAccount(event, form));
