@@ -55,11 +55,17 @@ const serverSync = {
   },
   async saveHoldings(accounts) {
     try {
+      console.log("Saving holdings to server:", accounts);
       const response = await fetch("/api/holdings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ holdings_accounts: accounts })
       });
+      console.log("Server save response:", response.status, response.ok);
+      if (!response.ok) {
+        const text = await response.text();
+        console.error("Server error response:", text);
+      }
       return response.ok;
     } catch (e) {
       console.error("Failed to save holdings to server:", e);
@@ -227,7 +233,10 @@ function saveHoldings() {
   localStorage.setItem("trend-analysis-holdings", JSON.stringify(holdings));
   localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
   localStorage.setItem("trend-analysis-current-holding-account", currentHoldingAccountId);
-  serverSync.saveHoldings(holdingAccounts);
+  serverSync.saveHoldings(holdingAccounts).then((success) => {
+    console.log("Holdings saved to server:", success);
+    if (!success) console.warn("Failed to save holdings to server, will retry on next change");
+  });
   if (signedInUser) syncPortfolio();
 }
 async function syncPortfolio() {
