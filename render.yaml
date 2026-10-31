@@ -7,6 +7,6 @@ services:
     startCommand: python3 server.py
     envVars:
       - key: TWELVE_DATA_API_KEY
-        sync: false
+        value: 2856e3780e0d48ae8b83ed68b8c5ff05
       - key: HOST
         value: 0.0.0.0
