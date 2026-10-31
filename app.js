@@ -202,10 +202,80 @@ function unavailableHoldingRow(holding, accountId, error) {
 }
 async function renderPortfolioSections() {
   const container = document.querySelector("#portfolioSections");
-  container.innerHTML = holdingAccounts.map((account) => `<section class="portfolio-section" data-account-section="${account.id}"><div class="portfolio-section-heading"><div><p class="card-kicker">Account type</p><input class="portfolio-section-name" data-account-name="${account.id}" value="${account.name}" maxlength="40" aria-label="Portfolio name" /></div><button class="holding-portfolio-delete" data-delete-account="${account.id}" aria-label="Delete ${account.name}" title="Delete ${account.name}">×</button></div><form class="holding-form portfolio-holding-form" data-account-form="${account.id}"><label>Symbol<input name="symbol" placeholder="Enter symbol" maxlength="20" required /></label><label>Quantity<input name="quantity" type="number" min="0.0001" step="any" placeholder="Qty" required /></label><label>Book price<input name="bookPrice" type="number" min="0.0001" step="any" placeholder="Price" required /></label><button class="primary-button" type="submit">Add holding <span>+</span></button></form><section class="holdings-performance"><div class="holdings-performance-heading"><div><p class="card-kicker">Position performance</p><h2>Gain/loss by holding</h2></div><span class="holdings-performance-as-of" data-performance-as-of="${account.id}"></span></div><div class="holdings-performance-list" data-performance="${account.id}"><p class="scanner-empty">Loading live prices…</p></div></section><div class="card holdings-card"><div class="holdings-table-wrap"><table class="holdings-table"><thead><tr><th>Symbol</th><th>Qty</th><th>Book price</th><th>Book value</th><th>Current price</th><th>Gain/loss</th><th>Gain/loss %</th><th>Projected income (1 year)</th><th>Expected 1 month</th><th>Expected 1 year</th><th>Expected 5 years</th><th></th></tr></thead><tbody data-rows="${account.id}"><tr><td colspan="12" class="scanner-empty">Loading live prices…</td></tr></tbody>${portfolioTotalsMarkup(account, [])}</table></div></div></section>`).join("");
+  container.innerHTML = holdingAccounts.map((account) => `<section class="portfolio-section" data-account-section="${account.id}"><div class="portfolio-section-heading"><div><p class="card-kicker">Account type</p><input class="portfolio-section-name" data-account-name="${account.id}" value="${account.name}" maxlength="40" aria-label="Portfolio name" /></div><button class="holding-portfolio-delete" data-delete-account="${account.id}" aria-label="Delete ${account.name}" title="Delete ${account.name}">×</button></div><form class="holding-form portfolio-holding-form" data-account-form="${account.id}"><div class="holding-symbol-input-wrap"><label>Symbol<input name="symbol" class="holding-symbol-input" placeholder="Enter symbol" maxlength="20" required /></label><div class="holding-symbol-suggestions" data-suggestions="${account.id}"></div></div><label>Quantity<input name="quantity" type="number" min="0.0001" step="any" placeholder="Qty" required /></label><label>Book price<input name="bookPrice" type="number" min="0.0001" step="any" placeholder="Price" required /></label><button class="primary-button" type="submit">Add holding <span>+</span></button></form><section class="holdings-performance"><div class="holdings-performance-heading"><div><p class="card-kicker">Position performance</p><h2>Gain/loss by holding</h2></div><span class="holdings-performance-as-of" data-performance-as-of="${account.id}"></span></div><div class="holdings-performance-list" data-performance="${account.id}"><p class="scanner-empty">Loading live prices…</p></div></section><div class="card holdings-card"><div class="holdings-table-wrap"><table class="holdings-table"><thead><tr><th>Symbol</th><th>Qty</th><th>Book price</th><th>Book value</th><th>Current price</th><th>Gain/loss</th><th>Gain/loss %</th><th>Projected income (1 year)</th><th>Expected 1 month</th><th>Expected 1 year</th><th>Expected 5 years</th><th></th></tr></thead><tbody data-rows="${account.id}"><tr><td colspan="12" class="scanner-empty">Loading live prices…</td></tr></tbody>${portfolioTotalsMarkup(account, [])}</table></div></div></section>`).join("");
   container.querySelectorAll("[data-delete-account]").forEach((button) => button.addEventListener("click", () => deleteHoldingAccount(button.dataset.deleteAccount)));
   container.querySelectorAll("[data-account-name]").forEach((input) => input.addEventListener("blur", () => saveAccountName(input)));
-  container.querySelectorAll("[data-account-form]").forEach((form) => form.addEventListener("submit", (event) => addHoldingToAccount(event, form)));
+  container.querySelectorAll("[data-account-form]").forEach((form) => {
+    form.addEventListener("submit", (event) => addHoldingToAccount(event, form));
+    const symbolInput = form.querySelector(".holding-symbol-input");
+    const suggestionsContainer = form.querySelector(".holding-symbol-suggestions");
+    const symbolInputWrap = form.querySelector(".holding-symbol-input-wrap");
+    let searchTimer;
+    symbolInput.addEventListener("input", (event) => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(async () => {
+        const term = event.target.value.trim();
+        if (!term) {
+          suggestionsContainer.classList.remove("show");
+          suggestionsContainer.innerHTML = "";
+          suggestionsContainer.style.display = "none";
+          return;
+        }
+        try {
+          const response = await fetch(`/api/symbol-search?symbol=${encodeURIComponent(term)}`);
+          if (!response.ok) throw new Error(`Symbol search failed: ${response.status}`);
+          const payload = await response.json();
+          const results = (payload.results || []).filter((result) => supportedExchanges.has(result.exchange));
+          if (results.length) {
+            suggestionsContainer.innerHTML = results.map((result, index) => `<button type="button" class="symbol-option" data-result-index="${index}" role="option" data-symbol="${result.symbol}" data-exchange="${result.exchange}"><strong>${result.display_symbol}</strong><em>${result.exchange}</em><small>${result.name}${result.type ? ` · ${result.type}` : ""}</small></button>`).join("");
+            suggestionsContainer.classList.add("show");
+            suggestionsContainer.style.display = "block";
+            suggestionsContainer.querySelectorAll("[data-result-index]").forEach((button, index) => {
+              button.addEventListener("click", (e) => {
+                e.preventDefault();
+                symbolInput.value = results[index].symbol;
+                suggestionsContainer.classList.remove("show");
+                suggestionsContainer.innerHTML = "";
+                suggestionsContainer.style.display = "none";
+              });
+            });
+          } else {
+            suggestionsContainer.innerHTML = '<div class="symbol-option"><small>No matching symbols found.</small></div>';
+            suggestionsContainer.classList.add("show");
+            suggestionsContainer.style.display = "block";
+          }
+        } catch (error) {
+          console.error("Symbol search error:", error);
+          suggestionsContainer.innerHTML = `<div class="symbol-option"><small>Error: ${error.message}</small></div>`;
+          suggestionsContainer.classList.add("show");
+          suggestionsContainer.style.display = "block";
+        }
+      }, 250);
+    });
+        }
+      }, 250);
+    });
+    symbolInput.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        suggestionsContainer.classList.remove("show");
+        suggestionsContainer.innerHTML = "";
+        suggestionsContainer.style.display = "none";
+      }
+    });
+    symbolInputWrap.addEventListener("click", (event) => {
+      if (event.target === symbolInput && suggestionsContainer.classList.contains("show")) {
+        return;
+      }
+    });
+  });
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".holding-symbol-input-wrap")) {
+      document.querySelectorAll(".holding-symbol-suggestions").forEach((cont) => {
+        cont.classList.remove("show");
+        cont.style.display = "none";
+      });
+    }
+  }, { capture: false });
   await Promise.all(holdingAccounts.map((account) => refreshPortfolioSection(account)));
 }
 async function refreshPortfolioSection(account) {
@@ -226,6 +296,8 @@ async function refreshPortfolioSection(account) {
   performance.innerHTML = markup.summary;
   asOf.textContent = markup.asOf;
   rows.querySelectorAll(".holding-dividend-input").forEach((input) => input.addEventListener("change", () => saveHoldingDividend(input)));
+  rows.querySelectorAll(".holding-quantity-input").forEach((input) => input.addEventListener("change", () => saveHoldingQuantity(input)));
+  rows.querySelectorAll(".holding-bookprice-input").forEach((input) => input.addEventListener("change", () => saveHoldingBookPrice(input)));
   rows.querySelectorAll(".holding-symbol-button").forEach((button) => button.addEventListener("click", () => {
     rows.querySelector(`[data-editor="${button.dataset.holdingId}"]`).classList.toggle("hidden");
   }));
@@ -404,6 +476,38 @@ function renderHoldingsPerformance(results) {
   element.innerHTML = `<div class="holding-performance-summary"><div><span>Portfolio current value</span><strong>${formatHoldingMoney(totalCurrentValue)}</strong></div><div><span>Total gain/loss</span><strong class="${valueClass(totalGainLoss)}">${totalGainLoss >= 0 ? "+" : ""}${formatHoldingMoney(totalGainLoss)}</strong></div><div><span>Return on book value</span><strong class="${valueClass(totalGainLossPercent)}">${formatPercent(totalGainLossPercent)}</strong></div><div><span>Positions in gain</span><strong>${performance.filter((item) => item.gainLoss > 0).length} of ${performance.length}</strong></div></div>`;
   asOf.textContent = `${successful.length} live position${successful.length === 1 ? "" : "s"}`;
 }
+function saveHoldingQuantity(input) {
+  const account = holdingAccounts.find((item) => item.id === input.dataset.accountId);
+  const holding = account?.holdings.find((item) => item.id === input.dataset.holdingId);
+  if (!holding) return;
+  const newQuantity = Number(input.value) || 0;
+  if (newQuantity <= 0) {
+    input.value = holding.quantity;
+    showToast("Quantity must be greater than 0.");
+    return;
+  }
+  holding.quantity = newQuantity;
+  saveHoldings();
+  renderPortfolioSections();
+  refreshPortfolioOverview();
+  showToast(`Quantity updated to ${newQuantity} for ${holding.symbol}.`);
+}
+function saveHoldingBookPrice(input) {
+  const account = holdingAccounts.find((item) => item.id === input.dataset.accountId);
+  const holding = account?.holdings.find((item) => item.id === input.dataset.holdingId);
+  if (!holding) return;
+  const newBookPrice = Number(input.value) || 0;
+  if (newBookPrice <= 0) {
+    input.value = holding.bookPrice;
+    showToast("Book price must be greater than 0.");
+    return;
+  }
+  holding.bookPrice = newBookPrice;
+  saveHoldings();
+  renderPortfolioSections();
+  refreshPortfolioOverview();
+  showToast(`Book price updated to ${formatHoldingMoney(newBookPrice)} for ${holding.symbol}.`);
+}
 function renderHoldingRow(holding, market, accountId) {
   const { current, bookValue, gainLoss, gainLossPercent } = getHoldingPerformance(holding, market);
   const indicators = calculateIndicators(market.prices);
@@ -412,7 +516,7 @@ function renderHoldingRow(holding, market, accountId) {
   const dividend = getDividendSettings(holding);
   const projectedIncome = getProjectedAnnualIncome(holding.quantity, dividend.amount, dividend.frequency);
   const valueClass = (value) => value >= 0 ? "positive" : "negative";
-  return `<tr><td><button class="holding-symbol-button" data-holding-id="${holding.id}" type="button" aria-label="Edit dividend settings for ${holding.symbol}"><strong>${holding.symbol}</strong></button></td><td>${holding.quantity.toLocaleString(undefined, { maximumFractionDigits: 4 })}</td><td>${formatHoldingMoney(holding.bookPrice)}</td><td>${formatMoney(bookValue)}</td><td>${formatHoldingMoney(current)}</td><td class="${valueClass(gainLoss)}">${gainLoss >= 0 ? "+" : ""}${formatHoldingMoney(gainLoss)}</td><td class="${valueClass(gainLossPercent)}">${formatPercent(gainLossPercent)}</td><td class="positive">${formatHoldingMoney(projectedIncome)}</td><td>${formatPercent(monthExpected)}</td><td>${formatPercent(modelReturns.oneYearLow)} to ${formatPercent(modelReturns.oneYearHigh)}</td><td>${formatPercent(modelReturns.fiveYearLow)} to ${formatPercent(modelReturns.fiveYearHigh)}</td><td><button class="remove-holding" data-id="${holding.id}" data-account-id="${accountId}" type="button" aria-label="Remove ${holding.symbol}" title="Remove ${holding.symbol}">×</button></td></tr><tr class="holding-income-editor hidden" data-editor="${holding.id}"><td colspan="12"><label>Dividend amount per payment <input class="holding-income-input" data-account-id="${accountId}" data-holding-id="${holding.id}" data-dividend-field="amount" type="number" min="0" step="0.001" value="${dividend.amount}" /></label><label>Frequency <select class="holding-income-input" data-account-id="${accountId}" data-holding-id="${holding.id}" data-dividend-field="frequency"><option value="monthly" ${dividend.frequency === "monthly" ? "selected" : ""}>Monthly</option><option value="quarterly" ${dividend.frequency === "quarterly" ? "selected" : ""}>Quarterly</option><option value="semi-annual" ${dividend.frequency === "semi-annual" ? "selected" : ""}>Semi-annual</option><option value="annual" ${dividend.frequency === "annual" ? "selected" : ""}>Annual</option></select></label></td></tr>`;
+  return `<tr><td><button class="holding-symbol-button" data-holding-id="${holding.id}" type="button" aria-label="Edit dividend settings for ${holding.symbol}"><strong>${holding.symbol}</strong></button></td><td><input class="holding-quantity-input" type="number" min="0.0001" step="any" value="${holding.quantity}" data-account-id="${accountId}" data-holding-id="${holding.id}" aria-label="Quantity for ${holding.symbol}" /></td><td><input class="holding-bookprice-input" type="number" min="0.0001" step="any" value="${holding.bookPrice}" data-account-id="${accountId}" data-holding-id="${holding.id}" aria-label="Book price for ${holding.symbol}" /></td><td>${formatMoney(bookValue)}</td><td>${formatHoldingMoney(current)}</td><td class="${valueClass(gainLoss)}">${gainLoss >= 0 ? "+" : ""}${formatHoldingMoney(gainLoss)}</td><td class="${valueClass(gainLossPercent)}">${formatPercent(gainLossPercent)}</td><td class="positive">${formatHoldingMoney(projectedIncome)}</td><td>${formatPercent(monthExpected)}</td><td>${formatPercent(modelReturns.oneYearLow)} to ${formatPercent(modelReturns.oneYearHigh)}</td><td>${formatPercent(modelReturns.fiveYearLow)} to ${formatPercent(modelReturns.fiveYearHigh)}</td><td><button class="remove-holding" data-id="${holding.id}" data-account-id="${accountId}" type="button" aria-label="Remove ${holding.symbol}" title="Remove ${holding.symbol}">×</button></td></tr><tr class="holding-income-editor hidden" data-editor="${holding.id}"><td colspan="12"><label>Dividend amount per payment <input class="holding-income-input" data-account-id="${accountId}" data-holding-id="${holding.id}" data-dividend-field="amount" type="number" min="0" step="0.001" value="${dividend.amount}" /></label><label>Frequency <select class="holding-income-input" data-account-id="${accountId}" data-holding-id="${holding.id}" data-dividend-field="frequency"><option value="monthly" ${dividend.frequency === "monthly" ? "selected" : ""}>Monthly</option><option value="quarterly" ${dividend.frequency === "quarterly" ? "selected" : ""}>Quarterly</option><option value="semi-annual" ${dividend.frequency === "semi-annual" ? "selected" : ""}>Semi-annual</option><option value="annual" ${dividend.frequency === "annual" ? "selected" : ""}>Annual</option></select></label></td></tr>`;
 }
 async function refreshHoldings() {
   const rows = document.querySelector("#holdingsRows");
