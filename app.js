@@ -870,10 +870,16 @@ async function refreshPortfolioOverview() {
   const totalValue = accountResults.reduce((sum, result) => sum + result.value, 0);
   const totalBookValue = holdingAccounts.reduce((sum, account) => sum + account.holdings.reduce((accountSum, holding) => accountSum + (holding.quantity * holding.bookPrice), 0), 0);
   const totalGainLoss = totalValue - totalBookValue;
-  const totalProjectedIncome = holdingAccounts.reduce((sum, account) => sum + account.holdings.reduce((accountSum, holding) => {
-    const dividend = getDividendSettings(holding);
-    return accountSum + getProjectedAnnualIncome(holding.quantity, dividend.amount, dividend.frequency);
-  }, 0), 0);
+  const totalProjectedIncome = holdingAccounts.reduce((sum, account) => {
+    const accountIncome = account.holdings.reduce((accountSum, holding) => {
+      const dividend = getDividendSettings(holding);
+      const holdingIncome = getProjectedAnnualIncome(holding.quantity, dividend.amount, dividend.frequency);
+      console.log(`  Income for ${account.name} ${holding.symbol}: ${holdingIncome} (qty: ${holding.quantity}, amount: ${dividend.amount}, freq: ${dividend.frequency})`);
+      return accountSum + holdingIncome;
+    }, 0);
+    console.log(`Account ${account.name} total income: ${accountIncome}`);
+    return sum + accountIncome;
+  }, 0);
   
   // Debug: log calculated totals
   console.log("Portfolio totals - Value:", formatHoldingMoney(totalValue), "Income:", formatHoldingMoney(totalProjectedIncome), "GainLoss:", formatHoldingMoney(totalGainLoss));
