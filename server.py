@@ -25,10 +25,21 @@ def hash_password(password, salt=None):
     return base64.b64encode(salt).decode(), base64.b64encode(digest).decode()
 
 def save_users():
-    temporary = f"{DATA_FILE}.tmp"
-    with open(temporary, "w", encoding="utf-8") as file:
-        json.dump(USERS, file)
-    os.replace(temporary, DATA_FILE)
+    try:
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(DATA_FILE) or '.', exist_ok=True)
+        temporary = f"{DATA_FILE}.tmp"
+        with open(temporary, "w", encoding="utf-8") as file:
+            json.dump(USERS, file, indent=2)
+        os.replace(temporary, DATA_FILE)
+        # Verify file was written
+        if os.path.exists(DATA_FILE):
+            with open(DATA_FILE, "r", encoding="utf-8") as f:
+                test = json.load(f)
+            return True
+    except Exception as e:
+        print(f"WARNING: Failed to persist users.json: {e}")
+    return False
 
 SCAN_CACHE = {}
 SCAN_CACHE_TTL = 900
@@ -335,70 +346,110 @@ class Handler(SimpleHTTPRequestHandler):
                 "portfolio": None,
                 "holdings_accounts": []
             }
-            save_users()
+            if not save_users():
+                print(f"WARNING: Could not persist new user {username}")
         
         record = USERS[username]
         
-        # Verify password
-        if record.get("password"):
-            salt = base64.b64decode(record["salt"])
-            _, digest = hash_password(password, salt)
-            if secrets.compare_digest(digest, record["password"]):
+        # Verify password - if one is set
+        if record.get("password") and record.get("salt"):
+            try:
+                salt = base64.b64decode(record["salt"])
+                _, digest = hash_password(password, salt)
+                if secrets.compare_digest(digest, record["password"]):
+                    self.send_json(200, {
+                        "ok": True,
+                        "role": record.get("role", "read-only")
+                    })
+                    return
+            except Exception as e:
+                print(f"Error verifying password: {e}")
+        
+        # If no password is set, allow first-time setup for new users
+        if not record.get("password"):
+            # First time: store the password
+            salt, digest = hash_password(password)
+            USERS[username]["salt"] = salt
+            USERS[username]["password"] = digest
+            if save_users():
                 self.send_json(200, {
                     "ok": True,
-                    "role": record.get("role", "read-only")
+                    "role": record.get("role", "read-only"),
+                    "message": "Password stored successfully"
+                })
+                return
+            else:
+                # Fallback: allow login anyway but warn about persistence
+                print(f"WARNING: Could not persist password for {username}")
+                self.send_json(200, {
+                    "ok": True,
+                    "role": record.get("role", "read-only"),
+                    "warning": "Password could not be persisted on free tier. Use password reset if needed."
                 })
                 return
         
-        # Fallback: allow "tradeideas2025" only for admin
+        # Fallback: allow "tradeideas2025" only for admin (Render free-tier recovery)
         if username == "moosadrahul" and password == "tradeideas2025":
-            if not record.get("password"):
-                new_salt, new_digest = hash_password(password)
-                USERS[username]["salt"] = new_salt
-                USERS[username]["password"] = new_digest
-                save_users()
             self.send_json(200, {
                 "ok": True,
-                "role": "admin"
+                "role": "admin",
+                "message": "Logged in with recovery password. Please set a new password."
             })
             return
         
-        # Password doesn't match
+        # Password doesn't match and user has a password set
         self.send_json(401, {"error": "Invalid username or password"})
 
     def handle_change_password(self):
-        # Change password for default admin user (protected by password screen)
-        username = "admin"
+        # Change password for the logged-in user
         try:
             payload = self.read_json()
+            username = str(payload.get("username", "")).strip()
             current_password = str(payload.get("currentPassword", ""))
             new_password = str(payload.get("newPassword", ""))
         except (ValueError, TypeError):
             self.send_json(400, {"error": "Invalid request"})
             return
+        
+        if not username or not new_password:
+            self.send_json(400, {"error": "Username and new password required"})
+            return
+        
         if len(new_password) < 8:
             self.send_json(400, {"error": "New password must be at least 8 characters"})
             return
         
-        # Initialize admin user if it doesn't exist
+        # Initialize user if it doesn't exist
         if username not in USERS:
-            USERS[username] = {"salt": "", "password": "", "portfolio": None, "holdings_accounts": []}
-            save_users()
+            USERS[username] = {"salt": "", "password": "", "role": "read-only", "portfolio": None, "holdings_accounts": []}
+            if not save_users():
+                print(f"WARNING: Could not initialize user {username}")
         
         record = USERS[username]
-        # If password not set yet (first time), skip current password check
-        if record.get("password"):
-            salt = base64.b64decode(record["salt"])
-            _, digest = hash_password(current_password, salt)
-            if not secrets.compare_digest(digest, record["password"]):
-                self.send_json(401, {"error": "Current password is incorrect"})
-                return
         
+        # If password is already set, verify current password
+        if record.get("password") and record.get("salt"):
+            try:
+                salt = base64.b64decode(record["salt"])
+                _, digest = hash_password(current_password, salt)
+                if not secrets.compare_digest(digest, record["password"]):
+                    self.send_json(401, {"error": "Current password is incorrect"})
+                    return
+            except Exception as e:
+                print(f"Error verifying current password: {e}")
+                self.send_json(401, {"error": "Could not verify current password"})
+                return
+        # If no password is set yet, allow change without verification
+        
+        # Set new password
         new_salt, new_digest = hash_password(new_password)
         USERS[username]["salt"] = new_salt
         USERS[username]["password"] = new_digest
-        save_users()
-        self.send_json(200, {"ok": True})
+        if save_users():
+            self.send_json(200, {"ok": True, "message": "Password changed successfully"})
+        else:
+            print(f"WARNING: Could not persist new password for {username}")
+            self.send_json(200, {"ok": True, "warning": "Password updated but could not be persisted on free tier"})
 
     def handle_symbol_search(self, parsed):
         query = urllib.parse.parse_qs(parsed.query)
@@ -516,6 +567,10 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_json(400, {"error": "Username and password required"})
                 return
             
+            if len(new_password) < 8:
+                self.send_json(400, {"error": "Password must be at least 8 characters"})
+                return
+            
             if new_username in USERS:
                 self.send_json(400, {"error": "User already exists"})
                 return
@@ -528,8 +583,15 @@ class Handler(SimpleHTTPRequestHandler):
                 "portfolio": None,
                 "holdings_accounts": []
             }
-            save_users()
-            self.send_json(200, {"ok": True, "username": new_username})
+            if save_users():
+                self.send_json(200, {"ok": True, "username": new_username})
+            else:
+                print(f"WARNING: Could not persist new user {new_username}")
+                self.send_json(200, {
+                    "ok": True,
+                    "username": new_username,
+                    "warning": "User created but could not be persisted on free tier. Password may not survive app restarts."
+                })
     
     def handle_admin_user_action(self, path):
         try:
