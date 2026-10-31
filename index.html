@@ -59,6 +59,7 @@
         <div class="holdings-heading">
           <div><h1>Holdings</h1></div>
           <div style="display: flex; gap: 12px;">
+            <button class="primary-button" id="refreshPricesButton" type="button">↻ Refresh prices</button>
             <button class="primary-button" id="newHoldingAccountButton" type="button">+ New account type</button>
             <button class="primary-button" id="importCSVButton" type="button" onclick="document.getElementById('csvFileInput').click()">📥 Import CSV/Excel</button>
             <input type="file" id="csvFileInput" accept=".csv,.xlsx,.xls" style="display: none;" onchange="handleFileImport(event)" />

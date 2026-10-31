@@ -445,6 +445,37 @@ async function syncPortfolio() {
     showToast("Portfolio saved locally; sync is temporarily unavailable.");
   }
 }
+function getCachedPrice(symbol) {
+  try {
+    const cache = JSON.parse(localStorage.getItem("trend-analysis-price-cache") || "{}");
+    return cache[symbol];
+  } catch {
+    return null;
+  }
+}
+function setCachedPrice(symbol, price) {
+  try {
+    const cache = JSON.parse(localStorage.getItem("trend-analysis-price-cache") || "{}");
+    cache[symbol] = { price, timestamp: Date.now() };
+    localStorage.setItem("trend-analysis-price-cache", JSON.stringify(cache));
+  } catch {
+    // Silently fail if cache storage fails
+  }
+}
+async function refreshAllPrices() {
+  const btn = document.querySelector("#refreshPricesButton");
+  btn.disabled = true;
+  btn.textContent = "↻ Refreshing…";
+  try {
+    await Promise.all(holdingAccounts.map((account) => refreshPortfolioSection(account)));
+    showToast("Prices refreshed successfully");
+  } catch (error) {
+    showToast(`Error refreshing prices: ${error.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "↻ Refresh prices";
+  }
+}
 function openAuthPanel() { document.querySelector("#authPanel").classList.remove("hidden"); document.querySelector("#authUsername").focus(); }
 function closeAuthPanel() { document.querySelector("#authPanel").classList.add("hidden"); }
 function setAuthMode(register) {
@@ -729,13 +760,25 @@ async function refreshPortfolioSection(account) {
       const response = await fetch(`/api/time-series?symbol=${encodeURIComponent(holding.symbol)}&outputsize=1261&interval=1day`);
       const payload = await response.json();
       if (!response.ok || !payload.prices?.length) throw new Error(payload.error || "No price data");
+      // Cache the current price
+      if (payload.prices && payload.prices.length > 0) {
+        setCachedPrice(holding.symbol, payload.prices[payload.prices.length - 1].close);
+      }
       return { holding, market: payload };
-    } catch (error) { return { holding, error: error.message }; }
+    } catch (error) {
+      // Try to use cached price
+      const cachedPrice = getCachedPrice(holding.symbol);
+      if (cachedPrice) {
+        // Create a minimal market object with just the last cached price
+        return { holding, market: { prices: [{ close: cachedPrice }] }, fromCache: true };
+      }
+      return { holding, error: error.message };
+    }
   }));
   const rows = document.querySelector(`[data-rows="${account.id}"]`);
   const performance = document.querySelector(`[data-performance="${account.id}"]`);
   const asOf = document.querySelector(`[data-performance-as-of="${account.id}"]`);
-  rows.innerHTML = account.holdings.length ? results.map(({ holding, market, error }) => error ? unavailableHoldingRow(holding, account.id, error) : renderHoldingRow(holding, market, account.id)).join("") : '<tr><td colspan="13" class="scanner-empty">No holdings added yet.</td></tr>';
+  rows.innerHTML = account.holdings.length ? results.map(({ holding, market, error, fromCache }) => error ? unavailableHoldingRow(holding, account.id, error) : renderHoldingRow(holding, market, account.id, fromCache)).join("") : '<tr><td colspan="13" class="scanner-empty">No holdings added yet.</td></tr>';
   rows.parentElement.querySelector("tfoot").outerHTML = portfolioTotalsMarkup(account, results);
   const markup = performanceMarkup(results);
   performance.innerHTML = markup.summary;
@@ -965,7 +1008,7 @@ function saveHoldingBookPrice(input) {
   refreshPortfolioOverview();
   showToast(`Book price updated to ${formatHoldingMoney(newBookPrice)} for ${holding.symbol}.`);
 }
-function renderHoldingRow(holding, market, accountId) {
+function renderHoldingRow(holding, market, accountId, fromCache = false) {
   const { current, bookValue, gainLoss, gainLossPercent } = getHoldingPerformance(holding, market);
   const indicators = calculateIndicators(market.prices);
   const modelReturns = getModelReturns(current, indicators.score);
@@ -973,7 +1016,8 @@ function renderHoldingRow(holding, market, accountId) {
   const dividend = getDividendSettings(holding);
   const projectedIncome = getProjectedAnnualIncome(holding.quantity, dividend.amount, dividend.frequency);
   const valueClass = (value) => value >= 0 ? "positive" : "negative";
-  return `<tr><td><button class="holding-symbol-button" data-holding-id="${holding.id}" type="button" aria-label="Edit dividend settings for ${holding.symbol}"><strong>${holding.symbol}</strong></button></td><td><input class="holding-quantity-input" type="number" min="0.0001" step="any" value="${holding.quantity}" data-account-id="${accountId}" data-holding-id="${holding.id}" aria-label="Quantity for ${holding.symbol}" /></td><td><input class="holding-bookprice-input" type="number" min="0.0001" step="any" value="${holding.bookPrice}" data-account-id="${accountId}" data-holding-id="${holding.id}" aria-label="Book price for ${holding.symbol}" /></td><td>${formatMoney(bookValue)}</td><td>${formatHoldingMoney(current)}</td><td class="${valueClass(gainLoss)}">${gainLoss >= 0 ? "+" : ""}${formatHoldingMoney(gainLoss)}</td><td class="${valueClass(gainLossPercent)}">${formatPercent(gainLossPercent)}</td><td class="positive">${formatHoldingMoney(projectedIncome)}</td><td>${formatPercent(monthExpected)}</td><td>${formatPercent(modelReturns.oneYearLow)} to ${formatPercent(modelReturns.oneYearHigh)}</td><td>${formatPercent(modelReturns.fiveYearLow)} to ${formatPercent(modelReturns.fiveYearHigh)}</td><td><button class="remove-holding" data-id="${holding.id}" data-account-id="${accountId}" type="button" aria-label="Remove ${holding.symbol}" title="Remove ${holding.symbol}">×</button></td></tr><tr class="holding-income-editor hidden" data-editor="${holding.id}"><td colspan="12"><label>Dividend amount per payment <input class="holding-income-input" data-account-id="${accountId}" data-holding-id="${holding.id}" data-dividend-field="amount" type="number" min="0" step="0.001" value="${dividend.amount}" /></label><label>Frequency <select class="holding-income-input" data-account-id="${accountId}" data-holding-id="${holding.id}" data-dividend-field="frequency"><option value="monthly" ${dividend.frequency === "monthly" ? "selected" : ""}>Monthly</option><option value="quarterly" ${dividend.frequency === "quarterly" ? "selected" : ""}>Quarterly</option><option value="semi-annual" ${dividend.frequency === "semi-annual" ? "selected" : ""}>Semi-annual</option><option value="annual" ${dividend.frequency === "annual" ? "selected" : ""}>Annual</option></select></label></td></tr>`;
+  const cacheIndicator = fromCache ? ' <small style="opacity: 0.6;">(cached)</small>' : '';
+  return `<tr><td><button class="holding-symbol-button" data-holding-id="${holding.id}" type="button" aria-label="Edit dividend settings for ${holding.symbol}"><strong>${holding.symbol}</strong>${cacheIndicator}</button></td><td><input class="holding-quantity-input" type="number" min="0.0001" step="any" value="${holding.quantity}" data-account-id="${accountId}" data-holding-id="${holding.id}" aria-label="Quantity for ${holding.symbol}" /></td><td><input class="holding-bookprice-input" type="number" min="0.0001" step="any" value="${holding.bookPrice}" data-account-id="${accountId}" data-holding-id="${holding.id}" aria-label="Book price for ${holding.symbol}" /></td><td>${formatMoney(bookValue)}</td><td>${formatHoldingMoney(current)}</td><td class="${valueClass(gainLoss)}">${gainLoss >= 0 ? "+" : ""}${formatHoldingMoney(gainLoss)}</td><td class="${valueClass(gainLossPercent)}">${formatPercent(gainLossPercent)}</td><td class="positive">${formatHoldingMoney(projectedIncome)}</td><td>${formatPercent(monthExpected)}</td><td>${formatPercent(modelReturns.oneYearLow)} to ${formatPercent(modelReturns.oneYearHigh)}</td><td>${formatPercent(modelReturns.fiveYearLow)} to ${formatPercent(modelReturns.fiveYearHigh)}</td><td><button class="remove-holding" data-id="${holding.id}" data-account-id="${accountId}" type="button" aria-label="Remove ${holding.symbol}" title="Remove ${holding.symbol}">×</button></td></tr><tr class="holding-income-editor hidden" data-editor="${holding.id}"><td colspan="12"><label>Dividend amount per payment <input class="holding-income-input" data-account-id="${accountId}" data-holding-id="${holding.id}" data-dividend-field="amount" type="number" min="0" step="0.001" value="${dividend.amount}" /></label><label>Frequency <select class="holding-income-input" data-account-id="${accountId}" data-holding-id="${holding.id}" data-dividend-field="frequency"><option value="monthly" ${dividend.frequency === "monthly" ? "selected" : ""}>Monthly</option><option value="quarterly" ${dividend.frequency === "quarterly" ? "selected" : ""}>Quarterly</option><option value="semi-annual" ${dividend.frequency === "semi-annual" ? "selected" : ""}>Semi-annual</option><option value="annual" ${dividend.frequency === "annual" ? "selected" : ""}>Annual</option></select></label></td></tr>`;
 }
 async function refreshHoldings() {
   const rows = document.querySelector("#holdingsRows");
@@ -1258,6 +1302,7 @@ initializeAuth();
 (async () => {
   await initializeHoldings();
 })();
+document.querySelector("#refreshPricesButton")?.addEventListener("click", refreshAllPrices);
 document.querySelector("#newHoldingAccountButton")?.addEventListener("click", createHoldingAccount);
 document.querySelector("#authButton")?.addEventListener("click", openAuthPanel);
 document.querySelector("#authClose")?.addEventListener("click", closeAuthPanel);
