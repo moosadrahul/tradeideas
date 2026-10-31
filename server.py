@@ -270,8 +270,7 @@ class Handler(SimpleHTTPRequestHandler):
 
     def handle_holdings_get(self):
         # Get holdings for the currently logged-in user
-        # Note: Username should be passed in query params or we use a default
-        # For now, we'll use query param if available, otherwise default to "moosadrahul"
+        # Check query params for username
         import urllib.parse
         parsed_query = urllib.parse.parse_qs(self.path.split('?')[1] if '?' in self.path else '')
         username = parsed_query.get('username', ['moosadrahul'])[0] if '?' in self.path else 'moosadrahul'
@@ -279,7 +278,18 @@ class Handler(SimpleHTTPRequestHandler):
         if username not in USERS:
             USERS[username] = {"salt": "", "password": "", "portfolio": None, "holdings_accounts": []}
             save_users()
-        holdings_accounts = USERS[username].get("holdings_accounts", [])
+        
+        user_record = USERS[username]
+        
+        # Check both old (portfolio) and new (holdings_accounts) fields
+        # If portfolio exists, migrate it to holdings_accounts
+        if user_record.get("portfolio") and not user_record.get("holdings_accounts"):
+            print(f"Migrating portfolio to holdings_accounts for {username}")
+            user_record["holdings_accounts"] = user_record.get("portfolio", [])
+            user_record["portfolio"] = None
+            save_users()
+        
+        holdings_accounts = user_record.get("holdings_accounts", [])
         self.send_json(200, {"holdings_accounts": holdings_accounts})
 
     def handle_holdings_save(self):
@@ -296,19 +306,17 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(400, {"error": "Username required"})
             return
         
-        # Allow any user to save their own holdings
-        # Check if user exists, if not create them
+        # Check if user exists in USERS
         if username not in USERS:
-            USERS[username] = {
-                "salt": "",
-                "password": "",
-                "role": "read-only",
-                "portfolio": None,
-                "holdings_accounts": []
-            }
+            print(f"WARNING: User {username} not in USERS when saving holdings")
+            self.send_json(403, {"error": "User not authenticated"})
+            return
+        
+        # Get user and check role
+        user_record = USERS[username]
+        user_role = user_record.get("role", "read-only")
         
         # Read-only check: prevent read-only users from modifying holdings
-        user_role = USERS[username].get("role", "read-only")
         if user_role == "read-only":
             self.send_json(403, {"error": "Read-only users cannot modify holdings"})
             return
@@ -323,9 +331,17 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(400, {"error": "Invalid holdings data"})
             return
         
-        USERS[username]["holdings_accounts"] = holdings_accounts
-        save_users()
-        self.send_json(200, {"ok": True})
+        # Save holdings to new field
+        user_record["holdings_accounts"] = holdings_accounts
+        # Clear old portfolio field to avoid confusion
+        user_record["portfolio"] = None
+        
+        if save_users():
+            print(f"Successfully saved {len(holdings_accounts)} accounts for {username}")
+            self.send_json(200, {"ok": True})
+        else:
+            print(f"WARNING: Failed to persist holdings for {username}")
+            self.send_json(200, {"ok": True, "warning": "Holdings saved locally but persistence may fail"})
 
     def handle_verify_password(self):
         try:

@@ -282,15 +282,25 @@ async function initializeHoldings() {
   try {
     const serverHoldings = await serverSync.loadHoldings();
     console.log("Server holdings loaded:", serverHoldings);
-    if (serverHoldings && Array.isArray(serverHoldings) && serverHoldings.length > 0) {
-      // Server returns holdings_accounts array directly
+    if (serverHoldings !== null) {
+      // Server returned data (could be empty array or populated array)
       // Each item should have: id, name, holdings array
-      holdingAccounts = serverHoldings;
-      localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
-      currentHoldingAccountId = holdingAccounts[0]?.id || "default";
-      holdings = holdingAccounts[0]?.holdings || [];
-      console.log("Updated holdingAccounts from server:", holdingAccounts);
-      console.log("Current holdings:", holdings);
+      if (Array.isArray(serverHoldings) && serverHoldings.length > 0) {
+        // Server has holdings - use them
+        holdingAccounts = serverHoldings;
+        localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
+        currentHoldingAccountId = holdingAccounts[0]?.id || "default";
+        holdings = holdingAccounts[0]?.holdings || [];
+        console.log("Updated holdingAccounts from server:", holdingAccounts);
+        console.log("Current holdings:", holdings);
+      } else if (Array.isArray(serverHoldings) && serverHoldings.length === 0) {
+        // Server returned empty array - this is first time, use local
+        console.log("Server returned empty - using local holdings");
+        // holdingAccounts already loaded from localStorage above, keep it
+      }
+    } else {
+      console.log("Server returned null - using local holdings");
+      // Server sync unavailable, use local
     }
   } catch (e) {
     console.error("Failed to load holdings from server:", e);
