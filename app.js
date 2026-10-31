@@ -209,6 +209,7 @@ async function renderPortfolioSections() {
     form.addEventListener("submit", (event) => addHoldingToAccount(event, form));
     const symbolInput = form.querySelector(".holding-symbol-input");
     const suggestionsContainer = form.querySelector(".holding-symbol-suggestions");
+    const symbolInputWrap = form.querySelector(".holding-symbol-input-wrap");
     let searchTimer;
     symbolInput.addEventListener("input", (event) => {
       clearTimeout(searchTimer);
@@ -251,12 +252,17 @@ async function renderPortfolioSections() {
         suggestionsContainer.innerHTML = "";
       }
     });
-    document.addEventListener("click", (event) => {
-      if (!event.target.closest(".holding-symbol-input-wrap")) {
-        suggestionsContainer.classList.remove("show");
+    symbolInputWrap.addEventListener("click", (event) => {
+      if (event.target === symbolInput && suggestionsContainer.classList.contains("show")) {
+        return;
       }
     });
   });
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".holding-symbol-input-wrap")) {
+      document.querySelectorAll(".holding-symbol-suggestions").forEach((cont) => cont.classList.remove("show"));
+    }
+  }, { capture: false });
   await Promise.all(holdingAccounts.map((account) => refreshPortfolioSection(account)));
 }
 async function refreshPortfolioSection(account) {
