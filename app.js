@@ -417,8 +417,11 @@ function getModelReturns(current, score) {
 function getCurrentHoldingAccount() { return holdingAccounts.find((account) => account.id === currentHoldingAccountId); }
 function saveHoldings() {
   const account = getCurrentHoldingAccount();
+  if (!account) {
+    console.error("No current holding account found!");
+    return;
+  }
   account.holdings = holdings;
-  localStorage.setItem("trend-analysis-holdings", JSON.stringify(holdings));
   localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
   localStorage.setItem("trend-analysis-current-holding-account", currentHoldingAccountId);
   serverSync.saveHoldings(holdingAccounts).then((success) => {
