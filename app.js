@@ -1325,6 +1325,10 @@ async function showImportPreview(holdings) {
   const previewPanel = document.querySelector("#importPreviewPanel");
   const previewContent = document.querySelector("#importPreviewContent");
   
+  if (!previewPanel || !previewContent) {
+    throw new Error("Import preview panel not found in HTML");
+  }
+  
   // Create preview table
   let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
   html += '<thead><tr style="border-bottom: 1px solid var(--line);"><th style="text-align: left; padding: 8px;">Symbol</th><th style="text-align: right; padding: 8px;">Quantity</th><th style="text-align: right; padding: 8px;">Avg Cost</th><th style="text-align: right; padding: 8px;">Value</th></tr></thead>';
@@ -1348,22 +1352,35 @@ async function showImportPreview(holdings) {
     const cancelBtn = document.querySelector("#importCancelButton");
     const closeBtn = document.querySelector("#importPreviewClose");
     
+    if (!confirmBtn || !cancelBtn || !closeBtn) {
+      console.error("Import buttons not found", { confirmBtn, cancelBtn, closeBtn });
+      reject(new Error("Import buttons not found in HTML"));
+      return;
+    }
+    
+    let resolved = false;
+    
     const cleanup = () => {
+      if (resolved) return;
       confirmBtn.removeEventListener("click", onConfirm);
       cancelBtn.removeEventListener("click", onCancel);
       closeBtn.removeEventListener("click", onCancel);
     };
     
-    const onConfirm = () => {
+    const onConfirm = async () => {
+      if (resolved) return;
+      resolved = true;
       cleanup();
       previewPanel.classList.add("hidden");
       resolve();
     };
     
     const onCancel = () => {
+      if (resolved) return;
+      resolved = true;
       cleanup();
       previewPanel.classList.add("hidden");
-      reject(new Error("Import cancelled"));
+      reject(new Error("Import cancelled by user"));
     };
     
     confirmBtn.addEventListener("click", onConfirm);
@@ -1379,6 +1396,7 @@ document.querySelector("#importCSVButton")?.addEventListener("click", () => {
 
 document.querySelector("#csvFileInput")?.addEventListener("change", async (event) => {
   const file = event.target.files[0];
+  console.log("File selected:", file?.name);
   if (!file) return;
   
   try {
@@ -1392,12 +1410,16 @@ document.querySelector("#csvFileInput")?.addEventListener("change", async (event
     let holdings;
     
     if (file.name.endsWith('.csv')) {
+      console.log("Parsing CSV file...");
       holdings = await parseCSVFile(file);
     } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      console.log("Parsing XLSX file...");
       holdings = await parseXLSXFile(file);
     } else {
       throw new Error("Please upload a CSV or Excel file (.csv, .xlsx, .xls)");
     }
+    
+    console.log("Parsed holdings:", holdings);
     
     if (holdings.length === 0) {
       showToast("No valid holdings found in file");
@@ -1405,15 +1427,16 @@ document.querySelector("#csvFileInput")?.addEventListener("change", async (event
       return;
     }
     
-    console.log("Parsed holdings:", holdings);
-    console.log("Current holdingAccounts:", holdingAccounts);
-    
+    console.log("Showing import preview...");
     // Show preview
     await showImportPreview(holdings);
+    console.log("Preview confirmed, proceeding with import...");
     
     // Generate account name from filename (remove extension)
     let accountName = file.name.replace(/\.[^/.]+$/, "").trim();
     if (!accountName) accountName = "Imported Holdings";
+    
+    console.log("Creating new account:", accountName);
     
     // Create a new account for these holdings (don't add to existing)
     const newAccountId = "imported-" + Date.now();
@@ -1447,16 +1470,22 @@ document.querySelector("#csvFileInput")?.addEventListener("change", async (event
     // Switch to the new account
     holdings = newAccount.holdings;
     
-    // Save to server and localStorage
+    // Save to localStorage
     localStorage.setItem("trend-analysis-holding-accounts", JSON.stringify(holdingAccounts));
     localStorage.setItem("trend-analysis-current-holding-account", currentHoldingAccountId);
-    await serverSync.saveHoldings(holdingAccounts);
+    console.log("Saved to localStorage");
+    
+    // Save to server
+    console.log("Saving to server...");
+    const serverSaveSuccess = await serverSync.saveHoldings(holdingAccounts);
+    console.log("Server save result:", serverSaveSuccess);
     
     // Refresh UI
     refreshPortfolioOverview();
     renderPortfolioSections();
     
     showToast(`Successfully imported ${newAccount.holdings.length} holdings to account "${accountName}"!`);
+    console.log("Import complete!");
     
   } catch (error) {
     console.error("CSV import error:", error);
