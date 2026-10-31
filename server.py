@@ -9,14 +9,26 @@ import secrets
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
-DATA_FILE = os.path.join(os.path.dirname(__file__), "users.json")
+# Use persistent storage on Render if available, otherwise use local file
+DATA_DIR = os.environ.get("DATA_DIR", "/var/data")
+if not os.path.exists(DATA_DIR):
+    DATA_DIR = os.path.dirname(__file__)
+    
+os.makedirs(DATA_DIR, exist_ok=True)
+DATA_FILE = os.path.join(DATA_DIR, "users.json")
+
+print(f"Using data directory: {DATA_DIR}")
+print(f"Data file: {DATA_FILE}")
+
 USERS = {}
 SESSIONS = {}
 if os.path.exists(DATA_FILE):
     try:
         with open(DATA_FILE, encoding="utf-8") as file:
             USERS = json.load(file)
-    except (OSError, ValueError):
+            print(f"Loaded {len(USERS)} users from {DATA_FILE}")
+    except (OSError, ValueError) as e:
+        print(f"Failed to load users: {e}")
         USERS = {}
 
 def hash_password(password, salt=None):
@@ -25,10 +37,16 @@ def hash_password(password, salt=None):
     return base64.b64encode(salt).decode(), base64.b64encode(digest).decode()
 
 def save_users():
-    temporary = f"{DATA_FILE}.tmp"
-    with open(temporary, "w", encoding="utf-8") as file:
-        json.dump(USERS, file)
-    os.replace(temporary, DATA_FILE)
+    try:
+        os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
+        temporary = f"{DATA_FILE}.tmp"
+        with open(temporary, "w", encoding="utf-8") as file:
+            json.dump(USERS, file)
+        os.replace(temporary, DATA_FILE)
+        return True
+    except Exception as e:
+        print(f"ERROR: Failed to save users: {e}")
+        return False
 
 SCAN_CACHE = {}
 SCAN_CACHE_TTL = 900
