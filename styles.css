@@ -145,7 +145,7 @@ footer{color:var(--muted)}
   }
   .primary-button, .ghost-button, .text-button { min-height: 44px; }
   .remove-holding { padding: 8px; }
-  .holdings-table input { font-size: 12px; min-width: 60px; height: 36px; background:#181818!important;color:var(--ink)!important;}
+  .holdings-table input { font-size: 12px; min-width: 60px; height: 36px; background:#181818!important;color:var(--ink)!important;}.holdings-table input[type="number"]{background:#181818!important!important;color:var(--ink)!important;appearance:none!important;-webkit-appearance:none!important;-moz-appearance:none!important}
 }
 
 .holding-symbol-button{border:0;background:#181818!important;color:var(--ink)!important;padding:0;font:inherit;text-align:left!important}.holding-symbol-button:hover{text-decoration:underline;color:var(--green)}.holding-income-editor td{background:#181818;text-align:left!important;padding:12px 8px!important}.holding-income-editor label{display:inline-flex;align-items:center;gap:8px;margin-right:22px;color:var(--muted);font:10px "DM Mono",monospace;text-transform:uppercase}.holding-income-input{height:32px;border:1px solid var(--line);border-radius:5px;background:var(--card);color:var(--ink);padding:0 8px;font:12px "DM Mono",monospace}.holding-income-editor select{min-width:120px}
